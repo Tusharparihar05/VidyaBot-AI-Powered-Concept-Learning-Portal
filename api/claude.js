@@ -12,21 +12,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const mongoose = require('mongoose');
-
-// --- Person 4 (Minimal Setup for Person 3 to work) ---
-const historySchema = new mongoose.Schema({
-    userId: { type: String, default: 'anonymous' },
-    rawQuestion: String,
-    refinedPrompt: String,
-    textAnswer: String,
-    animationUrl: String,
-    avatarVideoUrl: String,
-    subjectTag: String,
-    chartData: Object,
-    createdAt: { type: Date, default: Date.now }
-});
-
-const History = mongoose.models.History || mongoose.model('History', historySchema);
+const History = require('../models/History');
 
 // --- Person 3 Tasks (Phase 2) ---
 
@@ -59,6 +45,7 @@ function parseType1Response(rawText) {
 async function saveToHistory(data) {
     try {
         const entry = new History({
+            userId: data.userId || new mongoose.Types.ObjectId(), // Placeholder for Person 1's Auth Integration
             rawQuestion: data.rawQuestion,
             refinedPrompt: data.refinedPrompt,
             textAnswer: data.explanation,
