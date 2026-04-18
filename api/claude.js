@@ -11,16 +11,96 @@ function callClaudeAPI(rawQuestion) {
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const mongoose = require('mongoose');
 
-// Route to refine a question
-router.post('/refine', (req, res) => {
+// --- Person 4 (Minimal Setup for Person 3 to work) ---
+const historySchema = new mongoose.Schema({
+    userId: { type: String, default: 'anonymous' },
+    rawQuestion: String,
+    refinedPrompt: String,
+    textAnswer: String,
+    animationUrl: String,
+    avatarVideoUrl: String,
+    subjectTag: String,
+    chartData: Object,
+    createdAt: { type: Date, default: Date.now }
+});
+
+const History = mongoose.models.History || mongoose.model('History', historySchema);
+
+// --- Person 3 Tasks (Phase 2) ---
+
+// 1. Handle Claude JSON parsing + fallback logic
+function parseType1Response(rawText) {
+    try {
+        // Try to find JSON in the text (in case Claude added conversational filler)
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        const data = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(rawText);
+        
+        return {
+            explanation: data.explanation || 'No explanation provided.',
+            keyPoints: data.keyPoints || [],
+            chartData: data.chartData || null,
+            subjectTag: data.subjectTag || 'general' // 2. Add subjectTag extraction
+        };
+    } catch (error) {
+        console.error("Claude JSON Parsing Error:", error);
+        // Fallback logic: Treat raw string as the explanation
+        return {
+            explanation: rawText,
+            keyPoints: [],
+            chartData: null,
+            subjectTag: 'uncategorized'
+        };
+    }
+}
+
+// 3. Implement MongoDB save after successful Type 1
+async function saveToHistory(data) {
+    try {
+        const entry = new History({
+            rawQuestion: data.rawQuestion,
+            refinedPrompt: data.refinedPrompt,
+            textAnswer: data.explanation,
+            subjectTag: data.subjectTag,
+            chartData: data.chartData
+        });
+        await entry.save();
+        console.log("Successfully saved to MongoDB history with tag:", data.subjectTag);
+        return entry;
+    } catch (error) {
+        console.error("Failed to save to MongoDB:", error);
+    }
+}
+
+// Updated route to include Person 3 logic (Phase 2)
+router.post('/refine', async (req, res) => {
     const { rawQuestion } = req.body;
     if (!rawQuestion) {
         return res.status(400).json({ error: 'rawQuestion is required' });
     }
 
-    const response = callClaudeAPI(rawQuestion);
-    res.json(response);
+    // Person 1 would get this, Person 3 processes it
+    const fakeRawClaudeResponse = JSON.stringify({
+        explanation: `Detailed explanation for: ${rawQuestion}`,
+        keyPoints: ["Point 1", "Point 2"],
+        chartData: { type: 'bar', labels: ['A', 'B'], values: [10, 20] },
+        subjectTag: 'Education'
+    });
+
+    const processedData = parseType1Response(fakeRawClaudeResponse);
+    
+    // Save to history (Person 3 task)
+    await saveToHistory({
+        rawQuestion,
+        refinedPrompt: `Refined: ${rawQuestion}`,
+        ...processedData
+    });
+
+    res.json({
+        refinedPrompt: `Refined: ${rawQuestion}`,
+        ...processedData
+    });
 });
 
 // Function to render video using Creatomate API
