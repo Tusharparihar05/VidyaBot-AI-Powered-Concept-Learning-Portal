@@ -5,6 +5,7 @@ const connectDB = require('./config/db');
 
 dotenv.config();
 connectDB();
+require('./config/redis');
 
 const app = express();
 app.use(cors());
