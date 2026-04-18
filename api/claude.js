@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-// Fake Claude API function
+
 function callClaudeAPI(rawQuestion) {
     // Simulate a refined prompt response
     return {
@@ -90,7 +90,6 @@ router.post('/refine', async (req, res) => {
     });
 });
 
-// Function to render video using Creatomate API
 async function renderVideo() {
     const url = 'https://api.creatomate.com/v2/renders';
     const apiKey = process.env.CREATOMATE_API_KEY; // API key from .env
