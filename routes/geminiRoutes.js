@@ -3,6 +3,7 @@ const router = express.Router();
 const protect = require('../middleware/authMiddleware');
 const { refinePrompt } = require('../services/geminiService');
 
+
 router.post('/refine', protect, async (req, res) => {
   const { question } = req.body;
 
@@ -23,7 +24,7 @@ router.post('/refine', protect, async (req, res) => {
   } catch (err) {
     console.error('Gemini refine error:', err.message);
 
-  
+    
     const fallback = `Explain "${question}" for a ${grade} student. 
     Include: a clear definition, a real-world analogy, 
     4 key points, and simple data for a chart.`;

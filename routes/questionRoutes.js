@@ -1,17 +1,18 @@
 const express = require('express');
 const router = express.Router();
 const protect = require('../middleware/authMiddleware');
+const rateLimiter = require('../middleware/rateLimiter');
 const { refinePrompt, getStructuredAnswer } = require('../services/geminiService');
 
 
-router.post('/submit', protect, async (req, res) => {
+router.post('/submit', protect,rateLimiter, async (req, res) => {
   const { question } = req.body;
 
   if (!question) {
     return res.status(400).json({ message: 'Question is required' });
   }
 
-
+  
   const grade = req.user.grade || 'Class 10';
   const sessionId = `session_${Date.now()}`;
 
@@ -79,7 +80,6 @@ router.post('/submit', protect, async (req, res) => {
       keyPoints: answerData.keyPoints,
       chartData: answerData.chartData,
       subjectTag: answerData.subjectTag,
-      
       animationUrl: null,
       avatarVideoUrl: null
     });
