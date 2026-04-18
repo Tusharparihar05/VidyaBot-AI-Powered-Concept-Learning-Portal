@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const protect = require('../middleware/authMiddleware');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const { refinePrompt } = require('../services/geminiService');
 
 router.post('/refine', protect, async (req, res) => {
   const { question } = req.body;
@@ -12,11 +10,30 @@ router.post('/refine', protect, async (req, res) => {
     return res.status(400).json({ message: 'Question is required' });
   }
 
-  // Phase 1: still returning static stub
-  // Phase 2: we will make the real Gemini call below
-  res.json({
-    refinedPrompt: `Explain "${question}" for a Class 10 student. Include: a clear definition, a real-world analogy, 3 key points, and a simple data example for visualization.`
-  });
+  
+  const grade = req.user.grade || 'Class 10';
+
+  try {
+    const refined = await refinePrompt(question, grade);
+    res.json({ 
+      refinedPrompt: refined,
+      grade 
+    });
+
+  } catch (err) {
+    console.error('Gemini refine error:', err.message);
+
+  
+    const fallback = `Explain "${question}" for a ${grade} student. 
+    Include: a clear definition, a real-world analogy, 
+    4 key points, and simple data for a chart.`;
+
+    res.json({ 
+      refinedPrompt: fallback,
+      grade,
+      fallback: true 
+    });
+  }
 });
 
 module.exports = router;
