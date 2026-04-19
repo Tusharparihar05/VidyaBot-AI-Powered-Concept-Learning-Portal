@@ -1,4 +1,4 @@
-export type Page = 'dashboard' | 'knowledge' | 'analytics' | 'settings';
+export type Page = 'dashboard' | 'knowledge' | 'analytics' | 'settings' |'history';
 
 export interface UserProfile {
   displayName: string;

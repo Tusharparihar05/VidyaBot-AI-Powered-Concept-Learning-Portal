@@ -10,6 +10,7 @@ import {
 import type { UserProfile } from '../types';
 
 const STORAGE_KEY = 'vidyabot-auth';
+const API = 'http://localhost:5000';
 
 export interface AuthSession {
   token: string;
@@ -63,20 +64,12 @@ function buildProfile(data: {
   institutionName?: string;
   gradeYear?: string;
 }): UserProfile {
-  const displayName =
-    data.username?.trim() || data.email.split('@')[0] || 'Student';
+  const displayName = data.username?.trim() || data.email.split('@')[0] || 'Student';
   const institutionName = data.institutionName?.trim() || '';
   const gradeYear = data.gradeYear?.trim() || '';
   const classLine = [gradeYear, institutionName].filter(Boolean).join(' · ') || '—';
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    displayName,
-  )}&background=10b981&color=fff`;
-  return {
-    displayName,
-    classLine,
-    email: data.email.trim(),
-    avatarUrl,
-  };
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10b981&color=fff`;
+  return { displayName, classLine, email: data.email.trim(), avatarUrl };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -94,57 +87,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (!email.trim() || !password) {
-      return { error: 'Enter email and password.' };
+    if (!email.trim() || !password) return { error: 'Enter email and password.' };
+
+    try {
+      const res = await fetch(`${API}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) return { error: data.message || 'Login failed' };
+
+      const profile = buildProfile({
+        email: data.user.email,
+        username: data.user.name,
+        gradeYear: data.user.gradeYear,
+      });
+
+      const authSession: AuthSession = { token: data.token, profile };
+      saveAuthSession(authSession);
+      setSession(authSession);
+      setUser(profile);
+      return { error: null };
+    } catch {
+      return { error: 'Server error. Make sure backend is running on port 5000.' };
     }
-
-    const profile = buildProfile({ email });
-    const authSession: AuthSession = {
-      token: btoa(`${email}:${Date.now()}`),
-      profile,
-    };
-
-    saveAuthSession(authSession);
-    setSession(authSession);
-    setUser(profile);
-
-    return { error: null };
   }, []);
 
   const signUp = useCallback(async (data: SignUpData) => {
-    if (!data.username.trim()) {
-      return { error: 'Please enter a username.' };
-    }
-    if (!data.email.trim()) {
-      return { error: 'Please enter your email.' };
-    }
-    if (data.password.length < 6) {
-      return { error: 'Password must be at least 6 characters.' };
-    }
-    if (!data.institutionName.trim()) {
-      return { error: 'Please enter your school or college name.' };
-    }
-    if (!data.gradeYear.trim()) {
-      return { error: `Please select your ${data.institutionType === 'school' ? 'grade' : 'year'}.` };
-    }
+    if (!data.username.trim()) return { error: 'Please enter a username.' };
+    if (!data.email.trim()) return { error: 'Please enter your email.' };
+    if (data.password.length < 6) return { error: 'Password must be at least 6 characters.' };
+    if (!data.institutionName.trim()) return { error: 'Please enter your school or college name.' };
+    if (!data.gradeYear.trim()) return { error: `Please select your ${data.institutionType === 'school' ? 'grade' : 'year'}.` };
 
-    const profile = buildProfile({
-      email: data.email,
-      username: data.username,
-      institutionName: data.institutionName,
-      gradeYear: data.gradeYear,
-    });
+    try {
+      const res = await fetch(`${API}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: data.username,
+          email: data.email,
+          password: data.password,
+          institutionType: data.institutionType,
+          institutionName: data.institutionName,
+          gradeYear: data.gradeYear,
+        }),
+      });
 
-    const authSession: AuthSession = {
-      token: btoa(`${data.email}:${Date.now()}`),
-      profile,
-    };
+      const resData = await res.json();
+      if (!res.ok) return { error: resData.message || 'Registration failed' };
 
-    saveAuthSession(authSession);
-    setSession(authSession);
-    setUser(profile);
+      const profile = buildProfile({
+        email: data.email,
+        username: data.username,
+        institutionName: data.institutionName,
+        gradeYear: data.gradeYear,
+      });
 
-    return { error: null };
+      const authSession: AuthSession = { token: resData.token, profile };
+      saveAuthSession(authSession);
+      setSession(authSession);
+      setUser(profile);
+      return { error: null };
+    } catch {
+      return { error: 'Server error. Make sure backend is running on port 5000.' };
+    }
   }, []);
 
   const signOut = useCallback(async () => {
@@ -164,16 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const profile = useMemo(() => session?.profile ?? null, [session]);
 
   const value = useMemo(
-    () => ({
-      session,
-      user,
-      profile,
-      loading,
-      signIn,
-      signUp,
-      signOut,
-      refreshProfile,
-    }),
+    () => ({ session, user, profile, loading, signIn, signUp, signOut, refreshProfile }),
     [session, user, profile, loading, signIn, signUp, signOut, refreshProfile],
   );
 
