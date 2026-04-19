@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Home, BookOpen, BarChart2, Settings, GraduationCap } from 'lucide-react';
+import { Home, BookOpen, BarChart2, Settings, GraduationCap, Clock } from 'lucide-react'; // ADD Clock
 import { useAuth } from '../context/AuthContext';
 import { Page } from '../types';
 
@@ -12,6 +12,7 @@ const navItems: { page: Page; icon: React.ReactNode; label: string }[] = [
   { page: 'dashboard', icon: <Home size={20} />, label: 'Dashboard' },
   { page: 'knowledge', icon: <BookOpen size={20} />, label: 'Knowledge Vault' },
   { page: 'analytics', icon: <BarChart2 size={20} />, label: 'Study Stats' },
+  { page: 'history', icon: <Clock size={20} />, label: 'My History' },  // ADD THIS
   { page: 'settings', icon: <Settings size={20} />, label: 'Settings' },
 ];
 
