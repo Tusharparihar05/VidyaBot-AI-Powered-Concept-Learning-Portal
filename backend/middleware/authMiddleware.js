@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -12,6 +13,14 @@ const protect = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
+
+    if (!decoded.grade) {
+      try {
+        const user = await User.findById(decoded.id).select('gradeYear').lean();
+        if (user) req.user.grade = user.gradeYear;
+      } catch {}
+    }
+
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Invalid token' });

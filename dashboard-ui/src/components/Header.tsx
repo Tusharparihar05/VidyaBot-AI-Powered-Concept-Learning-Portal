@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { Bell, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Page } from '../types';
+import { getAnalyticsStats } from '../services/api';
 
 interface HeaderProps {
   activePage: Page;
@@ -11,16 +13,21 @@ const pageTitles: Record<Page, string> = {
   knowledge: 'Knowledge Vault',
   analytics: 'Study Analytics',
   settings: 'Settings',
+  history: 'My History',
 };
-
-const credits = 7;
-const totalCredits = 10;
 
 export default function Header({ activePage }: HeaderProps) {
   const { profile } = useAuth();
-  const percentage = (credits / totalCredits) * 100;
   const displayName = profile?.displayName ?? 'Student';
   const classLine = profile?.classLine ?? '';
+
+  const [totalQuestions, setTotalQuestions] = useState(0);
+
+  useEffect(() => {
+    getAnalyticsStats()
+      .then(s => setTotalQuestions(s.totalQuestions))
+      .catch(() => {});
+  }, [activePage]);
 
   return (
     <header className="fixed top-0 left-16 right-0 h-16 bg-white border-b border-gray-100 flex items-center px-6 z-40 shadow-sm">
@@ -37,19 +44,12 @@ export default function Header({ activePage }: HeaderProps) {
         <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-2">
           <div className="flex items-center gap-1.5">
             <Zap size={14} className="text-amber-500 fill-amber-500" />
-            <span className="text-xs font-semibold text-gray-700">{credits}/{totalCredits} Credits</span>
-          </div>
-          <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all"
-              style={{ width: `${percentage}%` }}
-            />
+            <span className="text-xs font-semibold text-gray-700">{totalQuestions} Questions</span>
           </div>
         </div>
 
         <button className="relative w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
           <Bell size={16} />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">3</span>
         </button>
 
         <div className="flex items-center gap-2 cursor-pointer group">

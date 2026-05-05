@@ -1,32 +1,85 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Bell, Shield, Palette, ChevronRight, GraduationCap, LogOut } from 'lucide-react';
+import { User, GraduationCap, LogOut, Save, Loader2, CheckCircle, Mail, Building, BookOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getProfile, updateProfile, changePassword, type UserProfile } from '../services/api';
 
-const sections = [
-  {
-    title: 'Profile Settings',
-    icon: User,
-    items: ['Display Name', 'Email Address', 'Academic Level', 'Study Goals'],
-  },
-  {
-    title: 'Notifications',
-    icon: Bell,
-    items: ['Daily Reminders', 'Credit Alerts', 'New Content', 'Achievement Alerts'],
-  },
-  {
-    title: 'Appearance',
-    icon: Palette,
-    items: ['Theme', 'Language', 'Font Size', 'Compact Mode'],
-  },
-  {
-    title: 'Privacy & Security',
-    icon: Shield,
-    items: ['Data Privacy', 'Session History', 'Export Data', 'Delete Account'],
-  },
-];
+const SCHOOL_GRADES = ['9th Grade', '10th Grade', '11th Grade', '12th Grade'];
+const COLLEGE_YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
 
 export default function Settings() {
-  const { profile, signOut } = useAuth();
+  const { profile: authProfile, signOut } = useAuth();
+  const [dbProfile, setDbProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const [name, setName] = useState('');
+  const [institutionType, setInstitutionType] = useState('school');
+  const [institutionName, setInstitutionName] = useState('');
+  const [gradeYear, setGradeYear] = useState('');
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [pwMsg, setPwMsg] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+
+  useEffect(() => {
+    getProfile()
+      .then(p => {
+        setDbProfile(p);
+        setName(p.name);
+        setInstitutionType(p.institutionType);
+        setInstitutionName(p.institutionName);
+        setGradeYear(p.gradeYear);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const gradeOptions = institutionType === 'school' ? SCHOOL_GRADES : COLLEGE_YEARS;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const updated = await updateProfile({ name, institutionType, institutionName, gradeYear });
+      setDbProfile(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {}
+    setSaving(false);
+  };
+
+  const handleChangePassword = async () => {
+    setPwSaving(true);
+    setPwMsg('');
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPwMsg('Password updated!');
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (err: unknown) {
+      let msg = 'Failed to update password';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        msg = axErr.response?.data?.message || msg;
+      }
+      setPwMsg(msg);
+    }
+    setPwSaving(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-gray-300" />
+      </div>
+    );
+  }
+
+  const inputClass = 'w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 outline-none focus:ring-1 focus:ring-emerald-200 focus:border-emerald-300 transition-all';
+  const labelClass = 'block text-xs font-medium text-gray-500 mb-1.5';
 
   return (
     <motion.div
@@ -40,94 +93,118 @@ export default function Settings() {
         <p className="text-sm text-gray-500 mt-0.5">Manage your VidyaBot preferences</p>
       </div>
 
+      {/* Profile Banner */}
       <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-3xl p-6 flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white/30 shrink-0">
           <img
-            src={profile?.avatarUrl}
-            alt={profile?.displayName ?? 'Profile'}
+            src={authProfile?.avatarUrl}
+            alt={authProfile?.displayName ?? 'Profile'}
             className="w-full h-full object-cover"
           />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-white font-bold text-base">{profile?.displayName ?? 'Student'}</h3>
-          <p className="text-emerald-100 text-sm truncate">{profile?.email ?? ''}</p>
+          <h3 className="text-white font-bold text-base">{dbProfile?.name || authProfile?.displayName || 'Student'}</h3>
+          <p className="text-emerald-100 text-sm truncate">{dbProfile?.email || authProfile?.email}</p>
           <div className="flex items-center gap-1.5 mt-1.5">
             <GraduationCap size={12} className="text-emerald-200 shrink-0" />
-            <span className="text-emerald-100 text-xs">{profile?.classLine ?? ''}</span>
+            <span className="text-emerald-100 text-xs">{dbProfile?.gradeYear} · {dbProfile?.institutionName}</span>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-          <button
-            type="button"
-            className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-xl transition-colors"
-          >
-            Edit Profile
-          </button>
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white/90 text-emerald-800 text-xs font-semibold rounded-xl hover:bg-white transition-colors"
-          >
-            <LogOut size={14} />
-            Sign out
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {sections.map((section, si) => {
-          const Icon = section.icon;
-          return (
-            <motion.div
-              key={si}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: si * 0.08 }}
-              className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
-            >
-              <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <Icon size={14} className="text-emerald-600" />
-                </div>
-                <span className="text-sm font-bold text-gray-800">{section.title}</span>
-              </div>
-              <div className="divide-y divide-gray-50">
-                {section.items.map((item, ii) => (
-                  <button
-                    key={ii}
-                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <span className="text-sm text-gray-700">{item}</span>
-                    <ChevronRight size={14} className="text-gray-300" />
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
-        <h3 className="text-sm font-bold text-gray-800 mb-4">Plan & Credits</h3>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">Student Pro Plan</p>
-            <p className="text-xs text-gray-500 mt-0.5">10 credits/day · Renews daily at midnight</p>
-          </div>
-          <span className="px-3 py-1.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">Active</span>
-        </div>
-        <div className="mt-4 space-y-2">
-          <div className="flex justify-between text-xs">
-            <span className="text-gray-500">Daily Credits Used</span>
-            <span className="font-semibold text-gray-700">7 / 10</span>
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full w-[70%] bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full" />
-          </div>
-        </div>
-        <button className="mt-4 w-full py-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold hover:bg-emerald-100 transition-colors">
-          Upgrade to Unlimited
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-white/90 text-emerald-800 text-xs font-semibold rounded-xl hover:bg-white transition-colors shrink-0"
+        >
+          <LogOut size={14} /> Sign out
         </button>
+      </div>
+
+      {/* Edit Profile */}
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
+        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          <User size={15} className="text-emerald-600" /> Profile Settings
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Display Name</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Email (read-only)</label>
+            <div className="flex items-center gap-2">
+              <Mail size={14} className="text-gray-400" />
+              <span className="text-sm text-gray-500">{dbProfile?.email}</span>
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Institution Type</label>
+            <select
+              value={institutionType}
+              onChange={e => { setInstitutionType(e.target.value); setGradeYear(''); }}
+              className={inputClass}
+            >
+              <option value="school">School</option>
+              <option value="college">College</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>
+              <span className="flex items-center gap-1"><Building size={12} /> Institution Name</span>
+            </label>
+            <input type="text" value={institutionName} onChange={e => setInstitutionName(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>
+              <span className="flex items-center gap-1"><BookOpen size={12} /> Grade / Year</span>
+            </label>
+            <select value={gradeYear} onChange={e => setGradeYear(e.target.value)} className={inputClass}>
+              <option value="">Select...</option>
+              {gradeOptions.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-xl text-sm font-semibold transition-colors"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <CheckCircle size={14} /> : <Save size={14} />}
+          {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
+        </button>
+      </div>
+
+      {/* Change Password */}
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 space-y-4">
+        <h3 className="text-sm font-bold text-gray-800">Change Password</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Current Password</label>
+            <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>New Password</label>
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className={inputClass} />
+          </div>
+        </div>
+        {pwMsg && <p className={`text-xs ${pwMsg.includes('updated') ? 'text-emerald-600' : 'text-red-500'}`}>{pwMsg}</p>}
+        <button
+          onClick={handleChangePassword}
+          disabled={pwSaving || !currentPassword || !newPassword}
+          className="flex items-center gap-2 px-5 py-2.5 bg-gray-800 hover:bg-gray-900 disabled:bg-gray-300 text-white rounded-xl text-sm font-semibold transition-colors"
+        >
+          {pwSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          Update Password
+        </button>
+      </div>
+
+      {/* Account Info */}
+      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5">
+        <h3 className="text-sm font-bold text-gray-800 mb-2">Account</h3>
+        <p className="text-xs text-gray-500">
+          Member since {dbProfile?.createdAt ? new Date(dbProfile.createdAt).toLocaleDateString() : '—'}
+        </p>
       </div>
     </motion.div>
   );

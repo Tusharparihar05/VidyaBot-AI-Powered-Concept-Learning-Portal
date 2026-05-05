@@ -9,9 +9,9 @@ const rateLimiter = async (req, res, next) => {
     if (count === 1) {
       await redis.expire(key, 86400);
     }
-    if (count > 10) {
+    if (count > 100) {
       return res.status(429).json({
-        error: 'Daily limit reached. Max 10 requests per day.'
+        error: 'Daily limit reached. Max 100 requests per day.'
       });
     }
     next();

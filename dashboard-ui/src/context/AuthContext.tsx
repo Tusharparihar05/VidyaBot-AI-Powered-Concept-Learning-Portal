@@ -10,7 +10,7 @@ import {
 import type { UserProfile } from '../types';
 
 const STORAGE_KEY = 'vidyabot-auth';
-const API = 'http://localhost:5000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export interface AuthSession {
   token: string;
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(profile);
       return { error: null };
     } catch {
-      return { error: 'Server error. Make sure backend is running on port 5000.' };
+      return { error: 'Server error. Make sure backend is running.' };
     }
   }, []);
 
@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(profile);
       return { error: null };
     } catch {
-      return { error: 'Server error. Make sure backend is running on port 5000.' };
+      return { error: 'Server error. Make sure backend is running.' };
     }
   }, []);
 
