@@ -34,7 +34,6 @@ export default function HistoryPage() {
   const { session } = useAuth();
   const token = session?.token;
 
-  // Fetch tags once on mount
   useEffect(() => {
     if (!token) return;
     axios
@@ -43,9 +42,8 @@ export default function HistoryPage() {
       })
       .then((res) => setTags(res.data))
       .catch((err) => console.error(err));
-  }, [session]);
+  }, [token]);
 
-  // Fetch history when selectedTag changes
   useEffect(() => {
     if (!token) return;
     setLoading(true);
@@ -65,9 +63,8 @@ export default function HistoryPage() {
         setError(err.message);
         setLoading(false);
       });
-  }, [selectedTag, session]);
+  }, [selectedTag, token]);
 
-  // useMemo — only recomputes when history changes
   const chartData = useMemo(() => {
     const tagCounts: Record<string, number> = {};
     history.forEach((item) => {
@@ -90,23 +87,17 @@ export default function HistoryPage() {
   }, [history]);
 
   return (
-    <div style={{ padding: "24px", maxWidth: "900px", margin: "0 auto" }}>
-      <h1 style={{ fontSize: "24px", marginBottom: "16px" }}>
-        My Question History
-      </h1>
+    <div className="max-w-3xl mx-auto px-2">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">My Question History</h1>
 
-      {/* Subject Filter Buttons */}
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "24px" }}>
+      <div className="flex gap-2 flex-wrap mb-6">
         <button
           onClick={() => setSelectedTag("")}
-          style={{
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "none",
-            background: selectedTag === "" ? "#6366f1" : "#e5e7eb",
-            color: selectedTag === "" ? "white" : "black",
-            cursor: "pointer",
-          }}
+          className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors ${
+            selectedTag === ""
+              ? "bg-gpai-primary text-white"
+              : "bg-gray-100 dark:bg-gpai-surface-2 text-gray-700 dark:text-gray-200 hover:bg-gray-200"
+          }`}
         >
           All
         </button>
@@ -114,64 +105,47 @@ export default function HistoryPage() {
           <button
             key={tag}
             onClick={() => setSelectedTag(tag)}
-            style={{
-              padding: "8px 16px",
-              borderRadius: "8px",
-              border: "none",
-              background: selectedTag === tag ? "#6366f1" : "#e5e7eb",
-              color: selectedTag === tag ? "white" : "black",
-              cursor: "pointer",
-            }}
+            className={`px-4 py-2 rounded-xl text-xs font-medium capitalize transition-colors ${
+              selectedTag === tag
+                ? "bg-gpai-primary text-white"
+                : "bg-gray-100 dark:bg-gpai-surface-2 text-gray-700 dark:text-gray-200 hover:bg-gray-200"
+            }`}
           >
             {tag}
           </button>
         ))}
       </div>
 
-      {/* Chart */}
       {history.length > 0 && (
-        <div style={{ marginBottom: "32px", background: "#f9fafb", padding: "16px", borderRadius: "12px" }}>
+        <div className="mb-8 bg-white dark:bg-gpai-surface border border-gray-100 dark:border-gpai-border rounded-2xl p-4">
           <Bar data={chartData} options={{ responsive: true }} />
         </div>
       )}
 
-      {loading && <p>Loading...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {loading && <p className="text-gray-500 dark:text-gpai-muted text-sm">Loading...</p>}
+      {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
       {!loading && history.length === 0 && (
-        <p style={{ color: "#6b7280" }}>No questions found yet. Ask some questions first!</p>
+        <p className="text-gray-500 dark:text-gpai-muted text-sm">
+          No questions found yet. Ask some questions first!
+        </p>
       )}
 
-      {/* History Cards */}
       {history.map((item) => (
         <div
           key={item._id}
-          style={{
-            background: "white",
-            border: "1px solid #e5e7eb",
-            borderRadius: "12px",
-            padding: "16px",
-            marginBottom: "12px",
-          }}
+          className="bg-white dark:bg-gpai-surface border border-gray-100 dark:border-gpai-border rounded-2xl p-4 mb-3"
         >
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-            <span style={{
-              background: "#ede9fe",
-              color: "#6366f1",
-              padding: "4px 10px",
-              borderRadius: "999px",
-              fontSize: "12px",
-            }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-gpai-primary-soft text-gpai-primary capitalize">
               {item.subjectTag || "general"}
             </span>
-            <span style={{ fontSize: "12px", color: "#9ca3af" }}>
+            <span className="text-xs text-gray-400 dark:text-gpai-muted">
               {new Date(item.createdAt).toLocaleDateString()}
             </span>
           </div>
-          <p style={{ fontWeight: "600", marginBottom: "4px" }}>
-            {item.rawQuestion}
-          </p>
+          <p className="font-semibold text-gray-800 dark:text-gray-100 text-sm">{item.rawQuestion}</p>
           {item.textAnswer && (
-            <p style={{ color: "#6b7280", fontSize: "14px" }}>
+            <p className="text-xs text-gray-500 dark:text-gpai-muted mt-1">
               {item.textAnswer.slice(0, 150)}...
             </p>
           )}

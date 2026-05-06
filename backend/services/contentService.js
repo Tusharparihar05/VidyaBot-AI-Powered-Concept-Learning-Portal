@@ -1,8 +1,6 @@
 const crypto = require('crypto');
 const redis = require('../config/redis');
 const Content = require('../models/Content');
-const { getStructuredAnswer } = require('./nvidiaService');
-const { parseStructuredResponse } = require('./responseParser');
 
 const CACHE_TTL = 60 * 60 * 24; // 24 hours
 const CACHE_PREFIX = 'content:';
@@ -110,55 +108,8 @@ async function saveContent(promptHash, refinedPrompt, parsed) {
   }
 }
 
-/**
- * Generate content for a cache miss.
- * Cache checks are done in questionRoutes BEFORE calling this.
- * @param {string} refinedPrompt - The LLM-refined prompt (for quality)
- * @param {string} grade - Student grade level
- * @param {string} promptHash - Hash of the RAW question (for dedup keying)
- * @param {Array} conversationHistory - Optional multi-turn message history
- */
-async function getOrGenerateContent(refinedPrompt, grade, promptHash, conversationHistory = []) {
-  console.log('[LLM] Cache MISS — calling NVIDIA NIM...');
-  const rawResponse = await getStructuredAnswer(refinedPrompt, grade, conversationHistory);
-  const parsed = parseStructuredResponse(
-    typeof rawResponse === 'string' ? rawResponse : JSON.stringify(rawResponse),
-  );
-
-  if (parsed.parseError) {
-    console.warn('[LLM] First response had parse error, retrying...');
-    try {
-      const retryRaw = await getStructuredAnswer(
-        refinedPrompt + '\n\nIMPORTANT: Your previous response was not valid JSON. Reply with ONLY a valid JSON object.',
-        grade,
-        conversationHistory,
-      );
-      const retryParsed = parseStructuredResponse(
-        typeof retryRaw === 'string' ? retryRaw : JSON.stringify(retryRaw),
-      );
-      if (!retryParsed.parseError) {
-        if (conversationHistory.length === 0) {
-          await saveContent(promptHash, refinedPrompt, retryParsed);
-        }
-        return { data: retryParsed, cached: false, promptHash };
-      }
-    } catch (retryErr) {
-      console.error('[LLM] Retry also failed:', retryErr.message);
-    }
-  }
-
-  if (!parsed.parseError) {
-    if (conversationHistory.length === 0) {
-      await saveContent(promptHash, refinedPrompt, parsed);
-    }
-  }
-
-  return { data: parsed, cached: false, promptHash };
-}
-
 module.exports = {
   hashPrompt,
-  getOrGenerateContent,
   checkRedisCache,
   checkMongoContent,
   saveContent,

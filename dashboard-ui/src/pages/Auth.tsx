@@ -33,11 +33,8 @@ export default function Auth() {
 
   return (
     <div
-      className="min-h-screen w-screen flex flex-col items-center justify-center p-4"
-      style={{
-        background: 'radial-gradient(ellipse 120% 80% at 50% 50%, #e8f5f0 0%, #f0f4f2 40%, #e4ece8 100%)',
-        minHeight: '100vh',
-      }}
+      className="min-h-screen w-screen flex flex-col items-center justify-center p-4 bg-[radial-gradient(ellipse_120%_80%_at_50%_50%,_#eef2ff_0%,_#f6f7fb_40%,_#e2e8f0_100%)] dark:bg-[radial-gradient(ellipse_120%_80%_at_50%_50%,_#1e1b4b_0%,_#0b1020_60%,_#020617_100%)]"
+      style={{ minHeight: '100vh' }}
     >
       <div
         className="relative w-full overflow-hidden rounded-3xl shadow-2xl flex"
@@ -54,13 +51,11 @@ export default function Auth() {
         </div>
 
         <div
-          className="flex flex-col"
+          className="flex flex-col bg-white dark:bg-gpai-surface border-l border-black/5 dark:border-gpai-border"
           style={{
             width: '40%',
             minWidth: '320px',
             flexGrow: 1,
-            background: '#ffffff',
-            borderLeft: '1px solid rgba(0,0,0,0.04)',
           }}
         >
           {panel === 'signup' ? (

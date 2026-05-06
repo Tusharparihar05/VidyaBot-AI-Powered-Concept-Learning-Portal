@@ -6,15 +6,15 @@ import { getHeatmap, getAnalyticsStats, type HeatmapCell, type AnalyticsStats } 
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const intensityMap = [
-  'bg-gray-100',
-  'bg-emerald-200',
-  'bg-emerald-400',
-  'bg-emerald-600',
+  'bg-gray-100 dark:bg-gpai-surface-2',
+  'bg-indigo-200 dark:bg-indigo-500/30',
+  'bg-indigo-400 dark:bg-indigo-400/60',
+  'bg-indigo-600 dark:bg-indigo-300',
 ];
 
 const subjectColors = [
-  'bg-blue-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400',
-  'bg-indigo-400', 'bg-teal-400', 'bg-orange-400', 'bg-pink-400',
+  'bg-blue-400', 'bg-indigo-400', 'bg-amber-400', 'bg-rose-400',
+  'bg-emerald-400', 'bg-teal-400', 'bg-orange-400', 'bg-pink-400',
 ];
 
 export default function Analytics() {
@@ -32,7 +32,7 @@ export default function Analytics() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-gray-300" />
+        <Loader2 size={24} className="animate-spin text-gray-300 dark:text-gpai-muted" />
       </div>
     );
   }
@@ -47,16 +47,16 @@ export default function Analytics() {
       className="space-y-6"
     >
       <div>
-        <h2 className="text-xl font-bold text-gray-900">Study Analytics</h2>
-        <p className="text-sm text-gray-500 mt-0.5">Track your learning progress and performance</p>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Study Analytics</h2>
+        <p className="text-sm text-gray-500 dark:text-gpai-muted mt-0.5">Track your learning progress and performance</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { icon: BookOpen, label: 'Total Questions', value: String(stats?.totalQuestions ?? 0), sub: `${stats?.weeklyQuestions ?? 0} this week`, bg: 'bg-emerald-50 border-emerald-100', iconColor: 'text-emerald-600' },
-          { icon: Clock, label: 'Active Chats', value: String(stats?.totalChats ?? 0), sub: 'Conversations', bg: 'bg-blue-50 border-blue-100', iconColor: 'text-blue-600' },
-          { icon: Zap, label: 'Subjects', value: String(stats?.totalSubjects ?? 0), sub: 'Topics explored', bg: 'bg-amber-50 border-amber-100', iconColor: 'text-amber-600' },
-          { icon: Award, label: 'This Week', value: String(stats?.weeklyQuestions ?? 0), sub: 'Questions asked', bg: 'bg-rose-50 border-rose-100', iconColor: 'text-rose-600' },
+          { icon: BookOpen, label: 'Total Questions', value: String(stats?.totalQuestions ?? 0), sub: `${stats?.weeklyQuestions ?? 0} this week`, bg: 'bg-indigo-50 border-indigo-100 dark:bg-indigo-500/10 dark:border-indigo-500/30', iconColor: 'text-indigo-600 dark:text-indigo-300' },
+          { icon: Clock, label: 'Active Chats', value: String(stats?.totalChats ?? 0), sub: 'Conversations', bg: 'bg-blue-50 border-blue-100 dark:bg-blue-500/10 dark:border-blue-500/30', iconColor: 'text-blue-600 dark:text-blue-300' },
+          { icon: Zap, label: 'Subjects', value: String(stats?.totalSubjects ?? 0), sub: 'Topics explored', bg: 'bg-amber-50 border-amber-100 dark:bg-amber-500/10 dark:border-amber-500/30', iconColor: 'text-amber-600 dark:text-amber-300' },
+          { icon: Award, label: 'This Week', value: String(stats?.weeklyQuestions ?? 0), sub: 'Questions asked', bg: 'bg-rose-50 border-rose-100 dark:bg-rose-500/10 dark:border-rose-500/30', iconColor: 'text-rose-600 dark:text-rose-300' },
         ].map((stat, i) => {
           const Icon = stat.icon;
           return (
@@ -67,12 +67,12 @@ export default function Analytics() {
               transition={{ delay: i * 0.08 }}
               className={`${stat.bg} border rounded-3xl p-4`}
             >
-              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center mb-3 shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-white dark:bg-gpai-surface flex items-center justify-center mb-3 shadow-sm">
                 <Icon size={18} className={stat.iconColor} />
               </div>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              <p className="text-xs font-medium text-gray-600 mt-0.5">{stat.label}</p>
-              <p className="text-[10px] text-gray-400 mt-1">{stat.sub}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-300 mt-0.5">{stat.label}</p>
+              <p className="text-[10px] text-gray-400 dark:text-gpai-muted mt-1">{stat.sub}</p>
             </motion.div>
           );
         })}
@@ -83,14 +83,14 @@ export default function Analytics() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5"
+        className="bg-white dark:bg-gpai-surface rounded-3xl border border-gray-100 dark:border-gpai-border shadow-sm p-5"
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-bold text-gray-800">Learning Heatmap</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Daily activity over the past 7 weeks</p>
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Learning Heatmap</h3>
+            <p className="text-xs text-gray-400 dark:text-gpai-muted mt-0.5">Daily activity over the past 7 weeks</p>
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+          <div className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gpai-muted">
             <span>Less</span>
             {intensityMap.map((cls, i) => (
               <div key={i} className={`w-3 h-3 rounded-sm ${cls}`} />
@@ -104,7 +104,7 @@ export default function Analytics() {
             <div className="flex gap-1">
               <div className="flex flex-col justify-around w-6">
                 {days.map(d => (
-                  <div key={d} className="text-[10px] text-gray-400 text-right pr-1 h-4 flex items-center justify-end">{d}</div>
+                  <div key={d} className="text-[10px] text-gray-400 dark:text-gpai-muted text-right pr-1 h-4 flex items-center justify-end">{d}</div>
                 ))}
               </div>
               <div className="flex gap-1 flex-1">
@@ -130,28 +130,28 @@ export default function Analytics() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5"
+        className="bg-white dark:bg-gpai-surface rounded-3xl border border-gray-100 dark:border-gpai-border shadow-sm p-5"
       >
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-sm font-bold text-gray-800">Weekly Questions</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Questions asked per day this week</p>
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Weekly Questions</h3>
+            <p className="text-xs text-gray-400 dark:text-gpai-muted mt-0.5">Questions asked per day this week</p>
           </div>
-          <TrendingUp size={16} className="text-emerald-500" />
+          <TrendingUp size={16} className="text-gpai-primary" />
         </div>
 
         <div className="flex items-end justify-between gap-2 h-40">
           {(stats?.weeklyData || []).map((d, i) => (
             <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <span className="text-[10px] text-gray-400 font-medium">{d.count}</span>
+              <span className="text-[10px] text-gray-400 dark:text-gpai-muted font-medium">{d.count}</span>
               <motion.div
                 initial={{ height: 0 }}
                 animate={{ height: `${maxWeekly > 0 ? (d.count / maxWeekly) * 100 : 0}%` }}
                 transition={{ delay: 0.5 + i * 0.06, duration: 0.5, ease: 'easeOut' }}
-                className="w-full rounded-t-xl bg-gradient-to-t from-emerald-500 to-emerald-300 hover:from-emerald-600 hover:to-emerald-400 cursor-pointer transition-colors"
+                className="w-full rounded-t-xl bg-gradient-to-t from-gpai-primary to-indigo-300 dark:to-indigo-200 hover:opacity-90 cursor-pointer transition-opacity"
                 style={{ minHeight: d.count > 0 ? '4px' : '0' }}
               />
-              <span className="text-[10px] text-gray-500">{d.label}</span>
+              <span className="text-[10px] text-gray-500 dark:text-gpai-muted">{d.label}</span>
             </div>
           ))}
         </div>
@@ -162,23 +162,23 @@ export default function Analytics() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="bg-white rounded-3xl border border-gray-100 shadow-sm p-5"
+        className="bg-white dark:bg-gpai-surface rounded-3xl border border-gray-100 dark:border-gpai-border shadow-sm p-5"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-gray-800">Subject Breakdown</h3>
-          <Target size={15} className="text-gray-400" />
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Subject Breakdown</h3>
+          <Target size={15} className="text-gray-400 dark:text-gpai-muted" />
         </div>
         {(stats?.subjectBreakdown || []).length === 0 ? (
-          <p className="text-xs text-gray-400">No data yet. Ask some questions first!</p>
+          <p className="text-xs text-gray-400 dark:text-gpai-muted">No data yet. Ask some questions first!</p>
         ) : (
           <div className="space-y-3">
             {(stats?.subjectBreakdown || []).map((s, i) => (
               <div key={i} className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-gray-700 capitalize">{s.subject}</span>
-                  <span className="text-gray-400">{s.percent}%</span>
+                  <span className="font-medium text-gray-700 dark:text-gray-200 capitalize">{s.subject}</span>
+                  <span className="text-gray-400 dark:text-gpai-muted">{s.percent}%</span>
                 </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-2 bg-gray-100 dark:bg-gpai-surface-2 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${s.percent}%` }}

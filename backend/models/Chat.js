@@ -7,6 +7,11 @@ const chatSchema = new mongoose.Schema({
     required: true,
   },
   title: { type: String, default: 'New Chat' },
+  folderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ChatFolder',
+    default: null,
+  },
   subjectTag: { type: String, default: 'general' },
   messageCount: { type: Number, default: 0 },
   lastMessageAt: { type: Date, default: Date.now },

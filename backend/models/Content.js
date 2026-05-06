@@ -23,6 +23,12 @@ const contentSchema = new mongoose.Schema({
     slide:   Number,
     title:   String,
     bullets: [String],
+    code: {
+      language: { type: String, default: undefined },
+      source:   { type: String, default: undefined },
+    },
+    diagram: { type: String, default: undefined },
+    formula: { type: String, default: undefined },
   }],
   videoScript:     { type: String, default: '' },
   subjectTag:      { type: String, default: 'general', index: true },

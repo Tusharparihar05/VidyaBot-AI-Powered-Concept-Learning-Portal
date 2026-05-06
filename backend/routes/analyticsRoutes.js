@@ -3,11 +3,17 @@ const router = express.Router();
 const protect = require('../middleware/authMiddleware');
 const History = require('../models/History');
 const Chat = require('../models/Chat');
+const redis = require('../config/redis');
 
 // GET /api/analytics/heatmap — daily question counts for last 7 weeks
 router.get('/heatmap', protect, async (req, res) => {
   try {
     const userId = req.user.id;
+    const cacheKey = `analytics:heatmap:${userId}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return res.json(JSON.parse(cached));
+    } catch {}
     const weeksBack = 7;
     const now = new Date();
     const startDate = new Date(now);
@@ -45,6 +51,9 @@ router.get('/heatmap', protect, async (req, res) => {
       heatmap.push(week);
     }
 
+    try {
+      await redis.setex(cacheKey, 120, JSON.stringify(heatmap));
+    } catch {}
     res.json(heatmap);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -55,6 +64,11 @@ router.get('/heatmap', protect, async (req, res) => {
 router.get('/stats', protect, async (req, res) => {
   try {
     const userId = req.user.id;
+    const cacheKey = `analytics:stats:${userId}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return res.json(JSON.parse(cached));
+    } catch {}
     const totalQuestions = await History.countDocuments({ userId });
     const totalChats = await Chat.countDocuments({ userId, isArchived: false });
     const subjects = await History.distinct('subjectTag', { userId });
@@ -100,14 +114,18 @@ router.get('/stats', protect, async (req, res) => {
       return { label, count: entry ? entry.count : 0 };
     });
 
-    res.json({
+    const payload = {
       totalQuestions,
       totalChats,
       totalSubjects: subjects.length,
       weeklyQuestions,
       subjectBreakdown,
       weeklyData,
-    });
+    };
+    try {
+      await redis.setex(cacheKey, 120, JSON.stringify(payload));
+    } catch {}
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

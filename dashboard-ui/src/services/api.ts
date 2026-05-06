@@ -26,9 +26,16 @@ client.interceptors.request.use((config) => {
 export interface ChatItem {
   _id: string;
   title: string;
+  folderId?: string | null;
   subjectTag: string;
   messageCount: number;
   lastMessageAt: string;
+  createdAt: string;
+}
+
+export interface ChatFolderItem {
+  _id: string;
+  name: string;
   createdAt: string;
 }
 
@@ -39,7 +46,14 @@ export interface MessageItem {
   content: string;
   keyPoints?: string[];
   chartData?: { type: string; title: string; labels: string[]; values: number[] } | null;
-  animationScript?: { slide: number; title: string; bullets: string[] }[];
+  animationScript?: {
+    slide: number;
+    title: string;
+    bullets: string[];
+    code?: { language: string; source: string } | null;
+    diagram?: string | null;
+    formula?: string | null;
+  }[];
   videoScript?: string;
   subjectTag?: string;
   difficultyLevel?: string;
@@ -135,6 +149,61 @@ export async function* sendMessageStream(
   }
 }
 
+export async function* sendTempMessageStream(
+  tempChatId: string,
+  question: string
+): AsyncGenerator<StreamEvent> {
+  const headers = getAuthHeaders();
+  const response = await fetch(`${API}/api/chats/temp/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+    body: JSON.stringify({ tempChatId, question }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let message = 'Something went wrong';
+    try {
+      const parsed = JSON.parse(text);
+      message = parsed.error || parsed.message || message;
+    } catch {}
+    throw new Error(message);
+  }
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop()!;
+
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(trimmed.slice(6));
+          yield data as StreamEvent;
+        } catch {}
+      }
+    }
+  }
+
+  if (buffer.trim().startsWith('data: ')) {
+    try {
+      const data = JSON.parse(buffer.trim().slice(6));
+      yield data as StreamEvent;
+    } catch {}
+  }
+}
+
 export async function sendMessage(chatId: string, question: string): Promise<SendMessageResponse> {
   const { data } = await client.post(`/api/chats/${chatId}/messages`, { question });
   return data;
@@ -146,6 +215,21 @@ export async function deleteChat(chatId: string): Promise<void> {
 
 export async function renameChat(chatId: string, title: string): Promise<ChatItem> {
   const { data } = await client.patch(`/api/chats/${chatId}`, { title });
+  return data;
+}
+
+export async function listChatFolders(): Promise<ChatFolderItem[]> {
+  const { data } = await client.get('/api/chats/folders');
+  return data;
+}
+
+export async function createChatFolder(name: string): Promise<ChatFolderItem> {
+  const { data } = await client.post('/api/chats/folders', { name });
+  return data;
+}
+
+export async function moveChatToFolder(chatId: string, folderId: string | null): Promise<ChatItem> {
+  const { data } = await client.patch(`/api/chats/${chatId}/folder`, { folderId });
   return data;
 }
 
@@ -196,52 +280,6 @@ export async function updateProfile(updates: Partial<Pick<UserProfile, 'name' | 
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   await client.patch('/api/profile/password', { currentPassword, newPassword });
-}
-
-// --- Legacy (keep for history page) ---
-
-export interface SessionStatus {
-  sessionId: string;
-  status: string;
-  text: string;
-  animation: string;
-  video: string;
-  animationUrl: string | null;
-  videoUrl: string | null;
-  cachedHit: boolean;
-}
-
-export async function getSessionStatus(sessionId: string): Promise<SessionStatus> {
-  const { data } = await client.get(`/api/status/${sessionId}`);
-  return data;
-}
-
-export interface QuestionResponse {
-  success: boolean;
-  sessionId: string;
-  cached: boolean;
-  rawQuestion: string;
-  grade: string;
-  refinedPrompt: string;
-  explanation: string;
-  keyPoints: string[];
-  chartData: { type: string; title: string; labels: string[]; values: number[] } | null;
-  animationScript: { slide: number; title: string; bullets: string[] }[];
-  videoScript: string;
-  subjectTag: string;
-  difficultyLevel: string;
-  animationUrl: string | null;
-  avatarVideoUrl: string | null;
-}
-
-export async function submitQuestion(question: string): Promise<QuestionResponse> {
-  const { data } = await client.post('/api/question/submit', { question });
-  return data;
-}
-
-export async function refineQuestion(question: string): Promise<{ refinedPrompt: string; grade: string }> {
-  const { data } = await client.post('/api/refine', { question });
-  return data;
 }
 
 export default client;

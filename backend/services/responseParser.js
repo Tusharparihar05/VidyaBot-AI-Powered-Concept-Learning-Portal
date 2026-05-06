@@ -46,6 +46,65 @@ function validateChartData(chart) {
   };
 }
 
+function validateSlideCode(code) {
+  if (!code || typeof code !== 'object') return null;
+  const source = typeof code.source === 'string' ? code.source.trim() : '';
+  if (!source) return null;
+  const language = typeof code.language === 'string' && code.language.trim()
+    ? code.language.trim().toLowerCase()
+    : 'text';
+  return { language, source };
+}
+
+function sanitizeMermaidSource(src) {
+  if (typeof src !== 'string') return '';
+  let s = src.replace(/^```(?:mermaid|mmd)?\s*/i, '').replace(/```\s*$/, '').trim();
+
+  s = s
+    .split('\n')
+    .map((line) => {
+      const t = line.trimStart();
+      // Drop full-line `#`/`//`/`%%` comments
+      if (/^#(?!#)/.test(t) || /^\/\//.test(t) || /^%%/.test(t)) return '';
+      // Drop styling lines (style/linkStyle/classDef/class) — they reference nodes
+      // that may not exist and often use disallowed unit syntax.
+      if (/^(style|linkStyle|classDef|class)\s+/i.test(t)) return '';
+
+      // Strip trailing inline `#`/`//`/`%%` comments (ignoring quoted labels)
+      let out = line;
+      let inQuote = false;
+      for (let i = 0; i < out.length; i++) {
+        if (out[i] === '"') { inQuote = !inQuote; continue; }
+        if (inQuote) continue;
+        const prev = out[i - 1] || ' ';
+        const next = out[i + 1] || '';
+        if (out[i] === '#' && /\s/.test(prev) && next !== '#') { out = out.slice(0, i).trimEnd(); break; }
+        if (out[i] === '/' && next === '/' && /\s/.test(prev)) { out = out.slice(0, i).trimEnd(); break; }
+        if (out[i] === '%' && next === '%' && /\s/.test(prev)) { out = out.slice(0, i).trimEnd(); break; }
+      }
+      return out;
+    })
+    .filter((l) => l.trim() !== '')
+    .join('\n');
+
+  // Promote ambiguous "A -- B" (no closing label) to "A --- B"
+  s = s.replace(/([A-Za-z0-9_\])>}])\s+--\s+([A-Za-z0-9_(\[<{])/g, '$1 --- $2');
+  return s;
+}
+
+function validateSlideDiagram(diagram) {
+  if (typeof diagram !== 'string') return null;
+  const cleaned = sanitizeMermaidSource(diagram);
+  return cleaned ? cleaned : null;
+}
+
+function validateSlideFormula(formula) {
+  if (typeof formula !== 'string') return null;
+  // Strip surrounding $$ if the LLM included them anyway
+  const trimmed = formula.replace(/^\$\$\s*/, '').replace(/\s*\$\$$/, '').trim();
+  return trimmed ? trimmed : null;
+}
+
 function validateAnimationScript(script) {
   if (!Array.isArray(script) || script.length === 0) return [];
 
@@ -55,6 +114,9 @@ function validateAnimationScript(script) {
       slide: i + 1,
       title: String(slide.title),
       bullets: Array.isArray(slide.bullets) ? slide.bullets.map(String) : [],
+      code: validateSlideCode(slide.code),
+      diagram: validateSlideDiagram(slide.diagram),
+      formula: validateSlideFormula(slide.formula),
     }));
 }
 

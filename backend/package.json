@@ -6,11 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "worker:animation": "node workers/animationWorker.js",
-    "worker:video": "node workers/videoWorker.js",
-    "workers": "node workers/animationWorker.js & node workers/videoWorker.js",
-    "test": "jest",
-    "benchmark": "node tests/benchmark.js"
+    "test": "jest"
   },
   "keywords": [],
   "author": "",

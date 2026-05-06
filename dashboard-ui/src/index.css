@@ -2,6 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+/* GPAI Light palette — clean, modern, indigo/violet brand on neutral surfaces */
+:root {
+  --gpai-bg: #f6f7fb;
+  --gpai-surface: #ffffff;
+  --gpai-surface-2: #f1f3f9;
+  --gpai-border: #e2e8f0;
+  --gpai-text: #0f172a;
+  --gpai-muted: #64748b;
+  --gpai-primary: #6366f1;
+  --gpai-primary-hover: #4f46e5;
+  --gpai-primary-soft: #eef2ff;
+  --gpai-success: #10b981;
+  --gpai-warning: #f59e0b;
+  --gpai-danger: #ef4444;
+  color-scheme: light;
+}
+
+/* GPAI Dark palette — deep slate canvas with brighter indigo accent */
+html.dark {
+  --gpai-bg: #0b1020;
+  --gpai-surface: #111827;
+  --gpai-surface-2: #1e293b;
+  --gpai-border: #1f2937;
+  --gpai-text: #e5e7eb;
+  --gpai-muted: #94a3b8;
+  --gpai-primary: #818cf8;
+  --gpai-primary-hover: #a5b4fc;
+  --gpai-primary-soft: rgba(129, 140, 248, 0.12);
+  --gpai-success: #34d399;
+  --gpai-warning: #fbbf24;
+  --gpai-danger: #f87171;
+  color-scheme: dark;
+}
+
+html, body {
+  background: var(--gpai-bg);
+  color: var(--gpai-text);
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
 @layer utilities {
   .shimmer {
     background: linear-gradient(
@@ -15,11 +55,15 @@
   }
 }
 
+@layer components {
+  .gpai-surface {
+    background: var(--gpai-surface);
+    border: 1px solid var(--gpai-border);
+    box-shadow: 0 1px 2px rgba(2, 6, 23, 0.04);
+  }
+}
+
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
