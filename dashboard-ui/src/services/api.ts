@@ -21,6 +21,17 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('vidyabot-auth');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // --- Chat types ---
 
 export interface ChatItem {
@@ -281,5 +292,10 @@ export async function updateProfile(updates: Partial<Pick<UserProfile, 'name' | 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   await client.patch('/api/profile/password', { currentPassword, newPassword });
 }
+
+export const generateVideo = async (chatId: string, question: string, explanation: string) => {
+  const response = await client.post(`/api/chats/${chatId}/generate-video`, { question, explanation });
+  return response.data;
+};
 
 export default client;

@@ -18,8 +18,10 @@ import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github-dark.css';
 import './reveal-deck.css';
 import type { MessageItem } from '../../services/api';
+import ManimVideoPlayer from './ManimVideoPlayer';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
 
 function hasUsefulChartData(chartData: MessageItem['chartData']): boolean {
   if (!chartData) return false;
@@ -298,10 +300,10 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
                   {message.videoScript && (
                     <button
                       onClick={() => setShowVideoScript(prev => !prev)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-500/15 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/10 dark:text-indigo-300 text-xs font-medium hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-colors"
                     >
                       {showVideoScript ? <EyeOff size={12} /> : <Eye size={12} />}
-                      {showVideoScript ? 'Hide Teacher Script' : 'Show Teacher Script'}
+                      {showVideoScript ? 'Hide Animation' : '🎬 Generate Animation'}
                     </button>
                   )}
                 </div>
@@ -315,7 +317,7 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
 
               {showVideoScript && message.videoScript && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                  <VideoScriptCard script={message.videoScript} />
+                  <VideoScriptCard script={message.videoScript} message={message} />
                 </motion.div>
               )}
 
@@ -768,28 +770,20 @@ function SlideDiagram({ source }: { source: string }) {
 }
 
 // ── Video Script ──
+// Shows a Manim-powered animation player. The teacher script is intentionally
+// NOT shown here — users see the rendered animation video instead.
 
-function VideoScriptCard({ script }: { script: string }) {
-  const [expanded, setExpanded] = useState(false);
+function VideoScriptCard({ script, message }: { script: string; message: MessageItem }) {
+  const question =
+    (message as { question?: string }).question ||
+    message.subjectTag ||
+    'Step-by-step explanation';
 
   return (
-    <div className="bg-white dark:bg-gpai-surface border border-gray-100 dark:border-gpai-border rounded-2xl p-3 shadow-sm">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <User size={12} className="text-amber-600 dark:text-amber-400" />
-          <span className="text-[11px] font-bold text-gray-700 dark:text-gray-200">Teacher Script</span>
-        </div>
-        {script.length > 200 && (
-          <button onClick={() => setExpanded(!expanded)} className="text-[10px] text-amber-600 dark:text-amber-300 font-medium flex items-center gap-0.5">
-            {expanded ? <><ChevronUp size={10} /> Less</> : <><ChevronDown size={10} /> Full</>}
-          </button>
-        )}
-      </div>
-      <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/30 rounded-xl px-3 py-2">
-        <p className="text-[11px] text-amber-800 dark:text-amber-200 italic leading-relaxed">
-          &ldquo;{expanded ? script : script.slice(0, 200)}{!expanded && script.length > 200 ? '...' : ''}&rdquo;
-        </p>
-      </div>
-    </div>
+    <ManimVideoPlayer
+      chatId={message.chatId}
+      question={question}
+      explanationText={script}
+    />
   );
 }

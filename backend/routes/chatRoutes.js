@@ -16,6 +16,8 @@ const CONV_CACHE_TTL = 60 * 60 * 2;
 const MAX_CONTEXT_MESSAGES = 10;
 const TEMP_CONV_PREFIX = 'tempconv:';
 
+const axios = require('axios');
+
 async function getConversationContext(chatId) {
   const cacheKey = `${CONV_CACHE_PREFIX}${chatId}`;
   try {
@@ -514,6 +516,26 @@ router.patch('/:chatId/folder', protect, async (req, res) => {
     res.json(chat);
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/chats/:chatId/generate-video
+router.post('/:chatId/generate-video', protect, async (req, res) => {
+  const { chatId } = req.params;
+  const { question, explanation } = req.body;
+
+  try {
+      // Ping the Python Microservice running on port 8001
+      await axios.post('http://localhost:8001/api/generate-math-video', {
+          chatId: chatId,
+          question: question,
+          explanation_text: explanation
+      });
+      
+      res.status(202).json({ message: "Video generation initiated successfully." });
+  } catch (error) {
+      console.error("Failed to trigger video service:", error.message);
+      res.status(500).json({ error: "Failed to trigger video generation." });
   }
 });
 
