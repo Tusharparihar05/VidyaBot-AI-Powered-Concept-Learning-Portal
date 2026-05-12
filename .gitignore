@@ -1,7 +1,7 @@
 .env
 .env.*
 !.env.example
-dashboard-ui/node_modules/
+client/node_modules/
 backend/node_modules/
 video-service/.temp
 video-service/__pycache__

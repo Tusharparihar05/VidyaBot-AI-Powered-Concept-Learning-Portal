@@ -65,42 +65,98 @@ def cleanup(chatId: str):
 
 def generate_manim_script(question: str, explanation_text: str, chatId: str) -> str:
     """Call NVIDIA NIM (OpenAI-compatible) to generate a Manim script."""
-    prompt = f"""You are an expert Manim educator and animator. Write a Manim Community (v0.18+) Python script that creates a
-visually stunning, step-by-step animated explanation of the following topic:
+    prompt = f"""You are an expert Manim Community v0.18 animator. Generate ONLY 100% error-free, simple Python code.
 
 TOPIC: {question}
+CONTEXT: {explanation_text[:600]}
 
-CONTEXT (use this to guide the explanation):
-{explanation_text[:600]}
+USE ONLY THESE OBJECTS:
+1. Text("text", font_size=24, color=BLUE)
+2. MathTex(r"simple LaTeX", color=WHITE)
+3. Rectangle(height=2, width=3, color=BLUE, stroke_width=2)
+4. Circle(radius=1, color=RED, fill_opacity=0.3)
+5. Line(start=[0,0,0], end=[1,1,0], color=GREEN)
+6. Dot(point=[0,0,0], color=YELLOW)
+7. VGroup(obj1, obj2).arrange(DOWN, buff=0.3)
 
-STRICT REQUIREMENTS:
-1. The class MUST be named exactly `GeneratedScene` and inherit from `Scene`.
-2. Start with a beautiful animated title using gradient colors.
-3. Break the explanation into 4-6 clearly numbered steps.
-4. Each step MUST:
-   - Show a step label using Text() with a distinct color
-   - Animate relevant math formulas using MathTex (use LaTeX)
-   - Use Write(), FadeIn(), Create(), Transform(), ReplacementTransform(), GrowFromCenter() for smooth animations
-   - Use VGroup to organize and arrange elements neatly
-   - End with self.wait(1) before transitioning
-5. Use FadeOut() or self.play(*[FadeOut(mob) for mob in self.mobjects]) to clear between steps.
-6. Use vibrant colors: BLUE, GREEN, YELLOW, RED, ORANGE, PURPLE, TEAL, GOLD, PINK (Manim constants).
-7. Do NOT use any geometric shapes (Circle, Triangle, Square, Rectangle, SurroundingRectangle).
-8. Do NOT use any lines or arrows (Arrow, CurvedArrow, Line, NumberLine, Axes).
-9. ONLY use `Text`, `MathTex`, and `VGroup`.
-10. For layout, ONLY use `VGroup(item1, item2).arrange(DOWN)`. Do NOT use `.next_to()`, `.shift()`, `.to_edge()`, or `.get_right()`.
-11. Add a conclusion step that summarizes key points.
-12. Keep total animation between 60-120 seconds. Use self.wait(1) to self.wait(2) between parts.
-13. Use ONLY standard Manim imports: `from manim import *` and `import numpy as np`
-14. Do NOT use voice-over, narration, VideoMobject, or any external libraries.
-15. Do NOT use deprecated Manim features.
-16. Make sure ALL LaTeX in MathTex is VALID. Avoid special chars that break LaTeX.
-17. CRITICAL: The `Text` class does NOT take a `size` argument. If you need to change text size, use `font_size` (e.g., `Text("Hello", font_size=24)`).
-18. CRITICAL: Do NOT use `GRADIENT_COLORS` or `color_gradient`. Use ONLY standard solid colors like BLUE, RED, YELLOW, TEAL.
-19. Ensure elements do not go off-screen. Scale them down using `.scale(0.8)` if necessary.
+ NOT USE these
+- Axes, NumberLine, Graph, GraphBuilder
+- Arrow, ArrowTip, Vector (use Line instead)
+- Matrix, Array, Table, Polygon
+- Complex objects with methods you don't understand
+- Any object that isn't in the list above
 
-Output ONLY raw Python code. No markdown fences, no explanations, no comments outside the code.
-Start directly with `class GeneratedScene(Scene):` — do NOT include import statements."""
+use LaTeX :
+Use ONLY these tested patterns:
+- r"x + y"
+- r"x^2 + y^2"
+- r"\\frac{{a}}{{b}}"
+- r"a = b"
+- r"E = mc^2"
+- \alpha, \beta, \gamma (use text: "alpha", "beta")
+-  complex fractions or nesting
+- subscripts with numbers: use a_1 only for single digit
+- special environments
+
+⚠️ ONLY THESE METHODS (nothing else):
+- .scale(0.8)
+- .shift([0,1,0])
+- .set_color(BLUE)
+- .to_edge(UP)
+- .next_to(other, RIGHT, buff=0.3)
+- .add_background_rectangle(color=BLUE, opacity=0.3, buff=0.2)
+- .arrange(DOWN, buff=0.3)
+- .move_to([x, y, 0])
+
+⚠️ ONLY THESE ANIMATIONS:
+- self.play(Write(obj))
+- self.play(Create(obj))
+- self.play(FadeIn(obj))
+- self.play(FadeOut(obj))
+- self.play(GrowFromCenter(obj))
+- self.wait(duration)
+- self.play(*[FadeOut(mob) for mob in self.mobjects])
+
+⚠️ SUPER SIMPLE SCENE TEMPLATE:
+
+class GeneratedScene(Scene):
+    def construct(self):
+        # Part 1: Title
+        title = Text("Title Here", font_size=36, color=BLUE)
+        self.play(Write(title))
+        self.wait(1)
+        self.play(FadeOut(title))
+        
+        # Part 2: Formula
+        formula = MathTex(r"a + b = c", color=WHITE)
+        formula.add_background_rectangle(color=BLUE, opacity=0.3, buff=0.3)
+        self.play(Write(formula))
+        self.wait(1)
+        self.play(FadeOut(formula))
+        
+        # Part 3: Shape with label
+        circle = Circle(radius=0.8, color=RED, fill_opacity=0.3)
+        label = Text("Circle", font_size=20, color=RED)
+        label.next_to(circle, DOWN, buff=0.2)
+        self.play(Create(circle), Write(label))
+        self.wait(1)
+        self.play(*[FadeOut(mob) for mob in self.mobjects])
+        
+        # Part 4: Final message
+        final = Text("Key Concept", font_size=28, color=GREEN)
+        self.play(Write(final))
+        self.wait(1)
+
+REQUIREMENTS:
+- Exactly 4-6 sections (Title, 2-4 concept sections, Conclusion)
+- Each section: create → play → wait → fade out
+- Maximum 70 lines of code
+- complex method calls
+- use Axes, Numbers, Graphs, Arrows
+- use special LaTeX
+
+
+OUTPUT ONLY the class definition. NO imports. NO markdown. NO explanations."""
 
     print(f"[{chatId}] Requesting Manim script from NVIDIA NIM ({NVIDIA_MODEL})...")
 
@@ -223,7 +279,7 @@ def generate_manim_video(req: VideoRequest):
     audio_path = os.path.join(TEMP_DIR, f"temp_audio_{chatId}.mp3")
     try:
         audio_result = subprocess.run(
-            ["edge-tts", "--voice", "en-US-ChristopherNeural", "--text", clean_text, "--write-media", audio_path],
+            ["edge-tts", "--voice", "en-IN-NeerjaNeural", "--text", clean_text, "--write-media", audio_path],
             shell=True,
             capture_output=True,
             text=True,
