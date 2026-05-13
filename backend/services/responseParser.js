@@ -120,6 +120,39 @@ function validateAnimationScript(script) {
     }));
 }
 
+function validateWhiteboardElement(el) {
+  if (!el || typeof el !== 'object') return null;
+  const validTypes = ['text', 'box', 'arrow', 'circle', 'icon', 'underline', 'flowchart', 'formula_box', 'graph_axes'];
+  const validPositions = ['top_left', 'top_center', 'top_right', 'center_left', 'center', 'center_right', 'bottom_left', 'bottom_center', 'bottom_right'];
+  const type = validTypes.includes(el.type) ? el.type : 'text';
+  const position = validPositions.includes(el.position) ? el.position : 'center';
+  const content = typeof el.content === 'string' ? el.content.trim() : '';
+  const color = typeof el.color === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(el.color) ? el.color : '#1f2937';
+  if (!content) return null;
+  return { type, content, position, color };
+}
+
+function validateWhiteboardScript(script) {
+  if (!script || typeof script !== 'object') return null;
+  const title = typeof script.title === 'string' ? script.title.trim() : 'Topic Overview';
+  if (!Array.isArray(script.scenes) || script.scenes.length === 0) return null;
+
+  const scenes = script.scenes
+    .filter(s => s && typeof s === 'object')
+    .map((s, i) => ({
+      scene_number: typeof s.scene_number === 'number' ? s.scene_number : i + 1,
+      narration: typeof s.narration === 'string' ? s.narration.trim() : '',
+      elements: Array.isArray(s.elements)
+        ? s.elements.map(validateWhiteboardElement).filter(Boolean)
+        : [],
+      duration: typeof s.duration === 'number' && s.duration > 0 ? s.duration : 5,
+    }))
+    .filter(s => s.elements.length > 0 || s.narration);
+
+  if (scenes.length === 0) return null;
+  return { title, scenes };
+}
+
 /**
  * Parse and validate the structured JSON response from the LLM.
  * Handles: malformed JSON, missing fields, wrong types — always returns a usable object.
@@ -164,6 +197,8 @@ function parseStructuredResponse(rawText) {
     videoScript: typeof data.videoScript === 'string' ? data.videoScript : '',
     subjectTag: normalizeSubjectTag(data.subjectTag),
     difficultyLevel: normalizeDifficulty(data.difficultyLevel),
+    questionCategory: data.questionCategory === 'mathematical' ? 'mathematical' : 'theoretical',
+    whiteboardScript: validateWhiteboardScript(data.whiteboardScript),
     parseError: false,
   };
 }

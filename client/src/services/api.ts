@@ -66,6 +66,21 @@ export interface MessageItem {
     formula?: string | null;
   }[];
   videoScript?: string;
+  questionCategory?: 'mathematical' | 'theoretical';
+  whiteboardScript?: {
+    title: string;
+    scenes: {
+      scene_number: number;
+      narration: string;
+      elements: {
+        type: 'text' | 'box' | 'arrow' | 'circle' | 'icon' | 'underline' | 'flowchart' | 'formula_box' | 'graph_axes';
+        content: string;
+        position: string;
+        color: string;
+      }[];
+      duration: number;
+    }[];
+  } | null;
   subjectTag?: string;
   difficultyLevel?: string;
   cached?: boolean;
@@ -84,7 +99,7 @@ export interface SendMessageResponse {
 export type StreamEvent =
   | { type: 'user_saved'; message: MessageItem }
   | { type: 'token'; content: string }
-  | { type: 'metadata'; keyPoints: string[]; chartData: MessageItem['chartData']; animationScript: MessageItem['animationScript']; videoScript: string; subjectTag: string; difficultyLevel: string }
+  | { type: 'metadata'; keyPoints: string[]; chartData: MessageItem['chartData']; animationScript: MessageItem['animationScript']; videoScript: string; subjectTag: string; difficultyLevel: string; questionCategory: 'mathematical' | 'theoretical'; whiteboardScript: MessageItem['whiteboardScript'] }
   | { type: 'done'; message: MessageItem; sessionId: string; cached: boolean }
   | { type: 'error'; message: string };
 

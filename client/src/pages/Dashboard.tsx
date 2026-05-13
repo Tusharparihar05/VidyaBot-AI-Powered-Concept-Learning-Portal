@@ -174,6 +174,8 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
               videoScript: event.videoScript,
               subjectTag: event.subjectTag,
               difficultyLevel: event.difficultyLevel,
+              questionCategory: event.questionCategory,
+              whiteboardScript: event.whiteboardScript,
             });
             break;
 

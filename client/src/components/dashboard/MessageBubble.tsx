@@ -19,6 +19,7 @@ import 'highlight.js/styles/github-dark.css';
 import './reveal-deck.css';
 import type { MessageItem } from '../../services/api';
 import ManimVideoPlayer from './ManimVideoPlayer';
+import WhiteboardAnimPlayer from './WhiteboardAnimPlayer';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -185,6 +186,7 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
   const isStreaming = !!message.streaming;
   const [showSlides, setShowSlides] = useState(false);
   const [showVideoScript, setShowVideoScript] = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
 
   if (message.role === 'user') {
     return (
@@ -286,7 +288,7 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
                 </motion.div>
               )}
 
-              {(message.animationScript?.length || message.videoScript) && (
+              {(message.animationScript?.length || message.videoScript || message.whiteboardScript) && (
                 <div className="flex flex-wrap gap-2">
                   {message.animationScript && message.animationScript.length > 0 && (
                     <button
@@ -295,6 +297,15 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
                     >
                       {showSlides ? <EyeOff size={12} /> : <Eye size={12} />}
                       {showSlides ? 'Hide Slides' : 'Show Slides'}
+                    </button>
+                  )}
+                  {message.whiteboardScript && (
+                    <button
+                      onClick={() => setShowWhiteboard(prev => !prev)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
+                    >
+                      {showWhiteboard ? <EyeOff size={12} /> : <Eye size={12} />}
+                      {showWhiteboard ? 'Hide Whiteboard' : '✏️ Whiteboard Animation'}
                     </button>
                   )}
                   {message.videoScript && (
@@ -312,6 +323,12 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
               {showSlides && message.animationScript && message.animationScript.length > 0 && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                   <RevealDeck slides={message.animationScript} />
+                </motion.div>
+              )}
+
+              {showWhiteboard && message.whiteboardScript && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                  <WhiteboardAnimPlayer script={message.whiteboardScript} />
                 </motion.div>
               )}
 

@@ -65,98 +65,107 @@ def cleanup(chatId: str):
 
 def generate_manim_script(question: str, explanation_text: str, chatId: str) -> str:
     """Call NVIDIA NIM (OpenAI-compatible) to generate a Manim script."""
-    prompt = f"""You are an expert Manim Community v0.18 animator. Generate ONLY 100% error-free, simple Python code.
+    prompt = f"""You are an expert Manim Community v0.18 animator creating a beautiful, step-by-step educational math animation.
 
 TOPIC: {question}
-CONTEXT: {explanation_text[:600]}
+CONTEXT: {explanation_text[:800]}
 
-USE ONLY THESE OBJECTS:
-1. Text("text", font_size=24, color=BLUE)
-2. MathTex(r"simple LaTeX", color=WHITE)
-3. Rectangle(height=2, width=3, color=BLUE, stroke_width=2)
-4. Circle(radius=1, color=RED, fill_opacity=0.3)
-5. Line(start=[0,0,0], end=[1,1,0], color=GREEN)
-6. Dot(point=[0,0,0], color=YELLOW)
-7. VGroup(obj1, obj2).arrange(DOWN, buff=0.3)
+ALLOWED OBJECTS (use ONLY these):
+  Text("text", font_size=32, color=BLUE)
+  MathTex(r"LaTeX", color=WHITE, font_size=40)
+  SurroundingRectangle(obj, color=YELLOW, buff=0.2)
+  NumberPlane()
+  Axes(x_range=[-5,5,1], y_range=[-4,4,1], axis_config={{"color": BLUE}})
+  Circle(radius=1, color=RED, fill_opacity=0.3)
+  Rectangle(height=2, width=3, color=BLUE, stroke_width=2)
+  Line(start=LEFT, end=RIGHT, color=GREEN)
+  Arrow(start=LEFT*2, end=RIGHT*2, color=ORANGE, buff=0.1)
+  Dot(color=YELLOW)
+  Brace(obj, direction=DOWN)
+  VGroup(a, b).arrange(DOWN, buff=0.3)
 
- NOT USE these
-- Axes, NumberLine, Graph, GraphBuilder
-- Arrow, ArrowTip, Vector (use Line instead)
-- Matrix, Array, Table, Polygon
-- Complex objects with methods you don't understand
-- Any object that isn't in the list above
+ALLOWED METHODS: .scale(n) .shift(v) .to_edge(UP/DOWN/LEFT/RIGHT) .next_to(obj,dir,buff=n) .move_to(point) .set_color(color) .arrange(dir,buff=n) .add_background_rectangle(color=BLUE,opacity=0.3,buff=0.2) ax.c2p(x, y) (NEVER use ax.get_point)
 
-use LaTeX :
-Use ONLY these tested patterns:
-- r"x + y"
-- r"x^2 + y^2"
-- r"\\frac{{a}}{{b}}"
-- r"a = b"
-- r"E = mc^2"
-- \alpha, \beta, \gamma (use text: "alpha", "beta")
--  complex fractions or nesting
-- subscripts with numbers: use a_1 only for single digit
-- special environments
+ALLOWED ANIMATIONS: Write(obj) Create(obj) FadeIn(obj) FadeOut(obj) GrowArrow(arrow) GrowFromCenter(obj) self.wait(n) self.play(*[FadeOut(m) for m in self.mobjects])
 
-⚠️ ONLY THESE METHODS (nothing else):
-- .scale(0.8)
-- .shift([0,1,0])
-- .set_color(BLUE)
-- .to_edge(UP)
-- .next_to(other, RIGHT, buff=0.3)
-- .add_background_rectangle(color=BLUE, opacity=0.3, buff=0.2)
-- .arrange(DOWN, buff=0.3)
-- .move_to([x, y, 0])
+SAFE LATEX: r"a + b = c" | r"x^2 + bx + c" | r"\\frac{{a}}{{b}}" | r"\\sqrt{{x}}" | r"E = mc^2" | r"\\pi r^2"
 
-⚠️ ONLY THESE ANIMATIONS:
-- self.play(Write(obj))
-- self.play(Create(obj))
-- self.play(FadeIn(obj))
-- self.play(FadeOut(obj))
-- self.play(GrowFromCenter(obj))
-- self.wait(duration)
-- self.play(*[FadeOut(mob) for mob in self.mobjects])
-
-⚠️ SUPER SIMPLE SCENE TEMPLATE:
+STRUCTURE — write EXACTLY this pattern (6 sections, each section fades out before next):
 
 class GeneratedScene(Scene):
     def construct(self):
-        # Part 1: Title
-        title = Text("Title Here", font_size=36, color=BLUE)
-        self.play(Write(title))
-        self.wait(1)
-        self.play(FadeOut(title))
-        
-        # Part 2: Formula
-        formula = MathTex(r"a + b = c", color=WHITE)
-        formula.add_background_rectangle(color=BLUE, opacity=0.3, buff=0.3)
-        self.play(Write(formula))
-        self.wait(1)
-        self.play(FadeOut(formula))
-        
-        # Part 3: Shape with label
-        circle = Circle(radius=0.8, color=RED, fill_opacity=0.3)
-        label = Text("Circle", font_size=20, color=RED)
-        label.next_to(circle, DOWN, buff=0.2)
-        self.play(Create(circle), Write(label))
-        self.wait(1)
-        self.play(*[FadeOut(mob) for mob in self.mobjects])
-        
-        # Part 4: Final message
-        final = Text("Key Concept", font_size=28, color=GREEN)
-        self.play(Write(final))
-        self.wait(1)
+        # ── Section 1: Colorful Title ──
+        title = Text("TOPIC TITLE", font_size=44, color=BLUE_D)
+        sub = Text("Brief description", font_size=26, color=GRAY)
+        sub.next_to(title, DOWN, buff=0.3)
+        self.play(Write(title), FadeIn(sub))
+        self.wait(1.5)
+        self.play(*[FadeOut(m) for m in self.mobjects])
 
-REQUIREMENTS:
-- Exactly 4-6 sections (Title, 2-4 concept sections, Conclusion)
-- Each section: create → play → wait → fade out
-- Maximum 70 lines of code
-- complex method calls
-- use Axes, Numbers, Graphs, Arrows
-- use special LaTeX
+        # ── Section 2: Key Formula in Highlighted Box ──
+        formula = MathTex(r"KEY FORMULA", font_size=44, color=WHITE)
+        box = SurroundingRectangle(formula, color=YELLOW, buff=0.25)
+        lbl = Text("Key Formula", font_size=22, color=YELLOW)
+        lbl.next_to(box, UP, buff=0.15)
+        self.play(Write(formula), Create(box), Write(lbl))
+        self.wait(2)
+        self.play(*[FadeOut(m) for m in self.mobjects])
 
+        # ── Section 3: Step-by-Step Solution ──
+        s1 = Text("Step 1: ...", font_size=30, color=GREEN).to_edge(UP)
+        e1 = MathTex(r"step 1 expression", font_size=36)
+        self.play(Write(s1))
+        self.play(Write(e1))
+        self.wait(1)
+        s2 = Text("Step 2: ...", font_size=30, color=ORANGE)
+        s2.next_to(e1, DOWN, buff=0.5)
+        e2 = MathTex(r"step 2 expression", font_size=36)
+        e2.next_to(s2, DOWN, buff=0.3)
+        self.play(Write(s2), Write(e2))
+        self.wait(1.5)
+        self.play(*[FadeOut(m) for m in self.mobjects])
 
-OUTPUT ONLY the class definition. NO imports. NO markdown. NO explanations."""
+        # ── Section 4: Visual / Graph ──
+        # (Use Axes + parametric curve OR geometric shape relevant to topic)
+        # Example with Axes:
+        ax = Axes(x_range=[-3,3,1], y_range=[-2,5,1], axis_config={{"color": BLUE_D}})
+        ax.scale(0.7)
+        curve_lbl = Text("Graph", font_size=24, color=TEAL).to_edge(UP)
+        self.play(Create(ax), Write(curve_lbl))
+        self.wait(2)
+        self.play(*[FadeOut(m) for m in self.mobjects])
+
+        # ── Section 5: Final Answer Highlighted ──
+        ans = MathTex(r"FINAL ANSWER", font_size=50, color=GREEN_D)
+        ans_box = SurroundingRectangle(ans, color=GREEN, buff=0.3)
+        check = Text("Solution", font_size=30, color=GREEN)
+        check.next_to(ans_box, UP, buff=0.2)
+        self.play(GrowFromCenter(ans), Create(ans_box), Write(check))
+        self.wait(2)
+        self.play(*[FadeOut(m) for m in self.mobjects])
+
+        # ── Section 6: Key Takeaways ──
+        pts = VGroup(
+            Text("Key point 1", font_size=26, color=WHITE),
+            Text("Key point 2", font_size=26, color=WHITE),
+            Text("Key point 3", font_size=26, color=WHITE),
+        ).arrange(DOWN, buff=0.35)
+        header = Text("Key Takeaways", font_size=32, color=BLUE_D)
+        header.next_to(pts, UP, buff=0.4)
+        self.play(Write(header), FadeIn(pts))
+        self.wait(2)
+
+RULES:
+- Replace ALL CAPS placeholders with content specific to: {question}
+- Every formula MUST be inside a SurroundingRectangle
+- Each section MUST end with self.play(*[FadeOut(m) for m in self.mobjects]) (except last)
+- To get coordinates on Axes, use ax.c2p(x, y). NEVER use ax.get_point()
+- If topic has no graph relevance, replace Section 4 with a geometric shape or numeric example
+- EVERY section MUST be unique and cover different concepts. DO NOT repeat the exact same text or formula.
+- The visual sequence MUST align with the CONTEXT voiceover script. Adapt the sections so they strictly illustrate the voiceover.
+- Use longer self.wait(n) (e.g., self.wait(3) or self.wait(4)) so the animation timing matches the spoken voiceover pacing.
+- Max 90 lines total
+- Output ONLY the class definition — NO imports, NO markdown, NO extra text"""
 
     print(f"[{chatId}] Requesting Manim script from NVIDIA NIM ({NVIDIA_MODEL})...")
 

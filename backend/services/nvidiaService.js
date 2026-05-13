@@ -131,7 +131,7 @@ async function* streamExplanation(question, grade, conversationHistory = [], pro
 
 // ── Structured Metadata (JSON, non-streaming) ──
 
-const METADATA_SYSTEM_PROMPT = `You are a university professor preparing CUSTOM lecture slides for one specific student question.
+const METADATA_SYSTEM_PROMPT = `You are a university professor preparing CUSTOM lecture slides and animation scripts for one specific student question.
 The slides MUST be self-explanatory: a student looking ONLY at the slides (without the text answer) must understand the topic completely.
 Adapt the slide composition to the QUESTION TYPE — NEVER use a fixed format.
 
@@ -153,7 +153,26 @@ Schema:
   ],
   "videoScript": "60-90 second spoken teacher script",
   "subjectTag": "one of: mathematics, physics, chemistry, biology, computer_science, history, economics, general",
-  "difficultyLevel": "one of: easy, medium, hard"
+  "difficultyLevel": "one of: easy, medium, hard",
+  "questionCategory": "mathematical OR theoretical",
+  "whiteboardScript": {
+    "title": "Short topic title (max 5 words)",
+    "scenes": [
+      {
+        "scene_number": 1,
+        "narration": "What the narrator says for this scene (2-3 sentences, engaging and clear)",
+        "elements": [
+          {
+            "type": "text",
+            "content": "Content to draw/write",
+            "position": "top_left",
+            "color": "#1e40af"
+          }
+        ],
+        "duration": 5
+      }
+    ]
+  }
 }
 
 Rules:
@@ -207,7 +226,60 @@ ANIMATION SCRIPT — adaptive, custom slides (5–7 slides):
   Set unused fields to null:  "code": null, "diagram": null, "formula": null.
 
 - videoScript: 60–90 second engaging teacher voiceover.
-- subjectTag / difficultyLevel: pick exactly one from the allowed lists.`;
+- subjectTag / difficultyLevel: pick exactly one from the allowed lists.
+
+QUESTION CATEGORY — classify the question:
+  "mathematical": involves equations, formulas, geometry, calculus, algebra, statistics, proofs, graphs,
+    coordinate geometry, trigonometry, or any numerical/symbolic computation.
+  "theoretical": involves concepts, definitions, history, biology, processes, social science, CS theory,
+    explanations, comparisons — anything primarily explained in words.
+
+WHITEBOARD SCRIPT — 5–6 scenes, NEVER repeat the same visual content:
+
+  Each scene has:
+  * "scene_number": sequential integer
+  * "narration": 2–3 engaging sentences the teacher speaks during this scene
+  * "elements": array of visual elements to draw (2–5 per scene)
+  * "duration": seconds for this scene (4–7)
+
+  Element types and rules:
+    "text"      — writes text letter-by-letter (like handwriting)
+    "box"       — a rectangle drawn around important content (for key terms or titles)
+    "arrow"     — directional arrow with a label (shows relationships / flow)
+    "circle"    — circle with a label inside (for highlighting nodes or steps)
+    "icon"      — a simple labeled icon/symbol (e.g. "💡 Key Insight", "⚠️ Warning")
+    "underline" — underline drawn under important text already on canvas
+    "flowchart" — a 3-4 node flowchart with steps (describe each node in content like "A→B→C")
+    "formula_box" — formula enclosed in a highlighted box (math only)
+    "graph_axes" — coordinate axes with a plotted curve hint (math only)
+
+  Positions: "top_left", "top_center", "top_right", "center_left", "center", "center_right",
+              "bottom_left", "bottom_center", "bottom_right"
+
+  Colors: use educational bright colors:
+    Blue: "#1e40af"  |  Red: "#dc2626"  |  Green: "#16a34a"  |  Purple: "#7c3aed"
+    Orange: "#ea580c"  |  Teal: "#0891b2"  |  Black: "#1f2937"
+
+  IF questionCategory = "mathematical":
+    Scene 1: Title + problem statement (text + box)
+    Scene 2: Key formula in a formula_box with variable definitions (formula_box + text labels)
+    Scene 3: Step-by-step solution — step labels with arrows showing progression
+    Scene 4: Graph or geometric diagram if relevant (graph_axes or shapes) — else worked example
+    Scene 5: Final answer highlighted in a box + key takeaways
+    → Use formula_box for all formulas. Use graph_axes if the topic involves a plotted function.
+    → Each step must be numbered ("Step 1:", "Step 2:", etc.) as text elements.
+
+  IF questionCategory = "theoretical":
+    Scene 1: Topic title + central concept definition (text + box, colorful)
+    Scene 2: Flowchart OR diagram showing the process/structure (flowchart element)
+    Scene 3: Key components with circle labels and arrows between them
+    Scene 4: Real-world example or analogy (icon + text)
+    Scene 5: Summary — 3 bullet points (use • or -)
+    → You MUST include bullet points in your text elements to explain concepts clearly.
+    → You MUST include relevant drawings, icons, or flowcharts in EVERY scene to make it highly visual.
+    → Use flowcharts to show processes. Use circles for nodes/components.
+    → Make it colorful: each scene should use a different primary color.
+    → Avoid plain text-only scenes — every scene must have at least one non-text element.`;
 
 async function getMetadata(question, grade, profileContext = {}) {
   const userMsg = `Question: "${question}"\nStudent grade: ${grade}\nInstitution type: ${profileContext.institutionType || ''}\nInstitution: ${profileContext.institutionName || ''}`;

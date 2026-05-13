@@ -113,7 +113,7 @@ router.post('/temp/messages', protect, rateLimiter, async (req, res) => {
     }
 
     const explanation = chunks.join('');
-    let metadata = { keyPoints: [], chartData: null, animationScript: [], videoScript: '', subjectTag: 'general', difficultyLevel: 'medium' };
+    let metadata = { keyPoints: [], chartData: null, animationScript: [], videoScript: '', subjectTag: 'general', difficultyLevel: 'medium', questionCategory: 'theoretical', whiteboardScript: null };
     const rawMeta = await metadataPromise;
     if (rawMeta) {
       try {
@@ -125,6 +125,8 @@ router.post('/temp/messages', protect, rateLimiter, async (req, res) => {
           videoScript: parsed.videoScript,
           subjectTag: parsed.subjectTag,
           difficultyLevel: parsed.difficultyLevel,
+          questionCategory: parsed.questionCategory,
+          whiteboardScript: parsed.whiteboardScript,
         };
       } catch {}
     }
@@ -149,6 +151,8 @@ router.post('/temp/messages', protect, rateLimiter, async (req, res) => {
         videoScript: metadata.videoScript,
         subjectTag: metadata.subjectTag,
         difficultyLevel: metadata.difficultyLevel,
+        questionCategory: metadata.questionCategory,
+        whiteboardScript: metadata.whiteboardScript,
         createdAt: new Date().toISOString(),
       },
       sessionId: tempChatId,
@@ -364,12 +368,14 @@ router.post('/:chatId/messages', protect, rateLimiter, async (req, res) => {
             videoScript: parsed.videoScript,
             subjectTag: parsed.subjectTag,
             difficultyLevel: parsed.difficultyLevel,
+            questionCategory: parsed.questionCategory,
+            whiteboardScript: parsed.whiteboardScript,
           };
         } catch {
-          metadata = { keyPoints: [], chartData: null, animationScript: [], videoScript: '', subjectTag: 'general', difficultyLevel: 'medium' };
+          metadata = { keyPoints: [], chartData: null, animationScript: [], videoScript: '', subjectTag: 'general', difficultyLevel: 'medium', questionCategory: 'theoretical', whiteboardScript: null };
         }
       } else {
-        metadata = { keyPoints: [], chartData: null, animationScript: [], videoScript: '', subjectTag: 'general', difficultyLevel: 'medium' };
+        metadata = { keyPoints: [], chartData: null, animationScript: [], videoScript: '', subjectTag: 'general', difficultyLevel: 'medium', questionCategory: 'theoretical', whiteboardScript: null };
       }
 
       sendSSE(res, { type: 'metadata', ...metadata });
@@ -402,6 +408,8 @@ router.post('/:chatId/messages', protect, rateLimiter, async (req, res) => {
       videoScript: metadata.videoScript,
       subjectTag: metadata.subjectTag,
       difficultyLevel: metadata.difficultyLevel,
+      questionCategory: metadata.questionCategory,
+      whiteboardScript: metadata.whiteboardScript,
       cached,
       promptHash,
       sessionId: session._id,
