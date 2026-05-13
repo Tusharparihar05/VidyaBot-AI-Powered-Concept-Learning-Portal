@@ -50,6 +50,8 @@ async function checkMongoContent(promptHash) {
         videoScript: doc.videoScript,
         subjectTag: doc.subjectTag,
         difficultyLevel: doc.difficultyLevel,
+        questionCategory: doc.questionCategory,
+        whiteboardScript: doc.whiteboardScript,
       };
 
       try {
@@ -68,6 +70,8 @@ async function checkMongoContent(promptHash) {
 
 /**
  * Save generated content to both MongoDB and Redis.
+ * One cache entry (Mongo + Redis key via buildCacheKey) holds explanation, chartData,
+ * whiteboardScript, etc., so the whiteboard player can draw the same bar chart as the chat card.
  */
 async function saveContent(promptHash, refinedPrompt, parsed) {
   try {
@@ -81,6 +85,8 @@ async function saveContent(promptHash, refinedPrompt, parsed) {
       videoScript: parsed.videoScript,
       subjectTag: parsed.subjectTag,
       difficultyLevel: parsed.difficultyLevel,
+      questionCategory: parsed.questionCategory,
+      whiteboardScript: parsed.whiteboardScript,
     });
     console.log('[Store] Saved to Mongo content collection');
   } catch (err) {
@@ -100,6 +106,8 @@ async function saveContent(promptHash, refinedPrompt, parsed) {
       videoScript: parsed.videoScript,
       subjectTag: parsed.subjectTag,
       difficultyLevel: parsed.difficultyLevel,
+      questionCategory: parsed.questionCategory,
+      whiteboardScript: parsed.whiteboardScript,
     };
     await redis.setex(buildCacheKey(promptHash), CACHE_TTL, JSON.stringify(payload));
     console.log('[Store] Cached in Redis (TTL 24h)');

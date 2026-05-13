@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useRef, useCallback, type ReactNode } fro
 import { motion } from 'framer-motion';
 import {
   User, Sparkles, BarChart2, FileText,
-  ChevronDown, ChevronUp, Maximize2, Minimize2, GraduationCap, Download, Eye, EyeOff,
+  Maximize2, Minimize2, GraduationCap, Download, Eye, EyeOff,
 } from 'lucide-react';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
@@ -18,6 +18,8 @@ import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github-dark.css';
 import './reveal-deck.css';
 import type { MessageItem } from '../../services/api';
+import { ASSISTANT_MARKDOWN_CLASS, KEY_POINT_MARKDOWN_CLASS } from '../../constants/assistantMarkdown';
+import { normalizeMarkdownMath } from '../../utils/normalizeMarkdownMath';
 import ManimVideoPlayer from './ManimVideoPlayer';
 import WhiteboardAnimPlayer from './WhiteboardAnimPlayer';
 
@@ -26,10 +28,12 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 function hasUsefulChartData(chartData: MessageItem['chartData']): boolean {
   if (!chartData) return false;
-  if (!chartData.labels || chartData.labels.length < 2) return false;
-  if (!chartData.values || chartData.values.length < 2) return false;
-  if (chartData.values.every((v: number) => v === 0)) return false;
-  if (new Set(chartData.values).size === 1) return false;
+  if (!chartData.labels || !chartData.values) return false;
+  const n = Math.min(chartData.labels.length, chartData.values.length);
+  if (n < 2) return false;
+  const vals = chartData.values.slice(0, n);
+  if (vals.every((v: number) => v === 0)) return false;
+  if (new Set(vals).size === 1) return false;
   return true;
 }
 
@@ -103,7 +107,7 @@ function sanitizeMermaid(src: string): string {
       let line = stripTrailingComment(rawLine);
 
       // Promote ambiguous "A -- B" (no closing label) to "A --- B"
-      line = line.replace(/([A-Za-z0-9_\])>}])\s+--\s+([A-Za-z0-9_(\[<{])/g, '$1 --- $2');
+      line = line.replace(/([A-Za-z0-9_\])>}])\s+--\s+([A-Za-z0-9_(\x5b<{])/g, '$1 --- $2');
 
       return line;
     })
@@ -188,6 +192,11 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
   const [showVideoScript, setShowVideoScript] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
 
+  const markdownBody = useMemo(
+    () => normalizeMarkdownMath(message.content + (isStreaming ? '▍' : '')),
+    [message.content, isStreaming],
+  );
+
   if (message.role === 'user') {
     return (
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end">
@@ -226,23 +235,10 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
         </div>
         <div className="space-y-3 flex-1 min-w-0">
           <div className="bg-gray-50 dark:bg-gpai-surface-2 border border-gray-100 dark:border-gpai-border rounded-2xl rounded-tl-md px-4 py-3">
-            <div className="prose prose-sm prose-gray dark:prose-invert max-w-none
-              prose-headings:text-gray-800 dark:prose-headings:text-gray-100 prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1.5
-              prose-h2:text-[15px] prose-h3:text-[13px]
-              prose-p:text-sm prose-p:text-gray-800 dark:prose-p:text-gray-100 prose-p:leading-relaxed prose-p:my-1.5
-              prose-li:text-sm prose-li:text-gray-800 dark:prose-li:text-gray-100 prose-li:my-0.5
-              prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-semibold
-              prose-code:text-gpai-primary prose-code:bg-gpai-primary-soft prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
-              prose-pre:bg-gray-900 dark:prose-pre:bg-[#0d1117] prose-pre:text-gray-100 prose-pre:rounded-lg prose-pre:text-xs
-              prose-a:text-gpai-primary prose-a:no-underline hover:prose-a:underline
-              prose-ul:my-1.5 prose-ol:my-1.5
-              prose-table:text-xs
-              prose-th:bg-gray-100 dark:prose-th:bg-gpai-surface prose-th:px-2 prose-th:py-1
-              prose-td:px-2 prose-td:py-1 prose-td:border-gray-200 dark:prose-td:border-gpai-border
-            ">
+            <div className={ASSISTANT_MARKDOWN_CLASS}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex, [rehypeHighlight, { plainText: ['mermaid', 'mmd'] }]]}
+                rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }], [rehypeHighlight, { plainText: ['mermaid', 'mmd'] }]]}
                 components={{
                   code({ className, children, ...props }) {
                     const match = /language-(\w+)/.exec(className || '');
@@ -269,7 +265,7 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
                   },
                 }}
               >
-                {message.content + (isStreaming ? '▍' : '')}
+                {markdownBody}
               </ReactMarkdown>
             </div>
           </div>
@@ -328,7 +324,7 @@ export default function MessageBubble({ message }: { message: MessageItem }) {
 
               {showWhiteboard && message.whiteboardScript && (
                 <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                  <WhiteboardAnimPlayer script={message.whiteboardScript} />
+                  <WhiteboardAnimPlayer script={message.whiteboardScript} chartData={message.chartData} />
                 </motion.div>
               )}
 
@@ -378,7 +374,11 @@ function KeyPointsCard({ points }: { points: string[] }) {
             <div className="w-4 h-4 rounded-md bg-gpai-primary-soft flex items-center justify-center shrink-0 mt-0.5">
               <span className="text-[9px] font-bold text-gpai-primary">{i + 1}</span>
             </div>
-            <p className="text-xs text-gray-700 dark:text-gray-200 leading-relaxed">{p}</p>
+            <div className={KEY_POINT_MARKDOWN_CLASS}>
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}>
+                {normalizeMarkdownMath(p)}
+              </ReactMarkdown>
+            </div>
           </div>
         ))}
       </div>
@@ -719,12 +719,12 @@ function SlideSection({ slide }: { slide: SlideShape }) {
               </span>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm, remarkMath]}
-                rehypePlugins={[rehypeKatex]}
+                rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
                 components={{
                   p: ({ children }) => <span>{children}</span>,
                 }}
               >
-                {b}
+                {normalizeMarkdownMath(b)}
               </ReactMarkdown>
             </li>
           ))}
@@ -747,7 +747,7 @@ function SlideSection({ slide }: { slide: SlideShape }) {
         <div className="fragment fade-up slide-formula">
           <ReactMarkdown
             remarkPlugins={[remarkMath]}
-            rehypePlugins={[rehypeKatex]}
+            rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false }]]}
           >
             {`$$${slide.formula}$$`}
           </ReactMarkdown>
@@ -800,7 +800,9 @@ function VideoScriptCard({ script, message }: { script: string; message: Message
     <ManimVideoPlayer
       chatId={message.chatId}
       question={question}
-      explanationText={script}
+      videoScript={script}
+      keyPoints={message.keyPoints}
+      explanationFallback={message.content}
     />
   );
 }

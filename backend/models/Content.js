@@ -31,6 +31,8 @@ const contentSchema = new mongoose.Schema({
     formula: { type: String, default: undefined },
   }],
   videoScript:     { type: String, default: '' },
+  questionCategory: { type: String, enum: ['mathematical', 'theoretical'], default: undefined },
+  whiteboardScript: { type: mongoose.Schema.Types.Mixed, default: undefined },
   subjectTag:      { type: String, default: 'general', index: true },
   difficultyLevel: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
   usageCount:      { type: Number, default: 1 },

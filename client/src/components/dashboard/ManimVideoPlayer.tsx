@@ -36,6 +36,25 @@ interface StatusPayload {
   status: JobStatus;
   progress: number;
   error: string;
+  error_code?: string;
+}
+
+/** Short labels for server error_code (keeps UI tidy). */
+const ERROR_CODE_LABEL: Record<string, string> = {
+  manim_render: 'Render',
+  manim_cli: 'CLI',
+  manim_missing: 'Install',
+  manim_latex: 'LaTeX',
+  ai_provider: 'AI',
+  timeout: 'Timeout',
+  output_missing: 'Output',
+  network: 'Network',
+};
+
+function clipErrorForUi(text: string, max = 400): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
 }
 
 const STATUS_LABEL: Record<JobStatus, string> = {
@@ -50,10 +69,11 @@ const STATUS_LABEL: Record<JobStatus, string> = {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function GenerationProgress({ status, progress, error, onRetry }: {
+function GenerationProgress({ status, progress, error, errorCode, onRetry }: {
   status: JobStatus;
   progress: number;
   error: string;
+  errorCode?: string;
   onRetry: () => void;
 }) {
   if (status === 'ready') return null;
@@ -77,8 +97,22 @@ function GenerationProgress({ status, progress, error, onRetry }: {
           <p className="text-sm font-semibold text-white">
             {isFailed ? 'Video generation failed' : 'Generating Manim animation…'}
           </p>
-          <p className="text-xs text-indigo-300/60 mt-0.5">
-            {isFailed ? (error || 'An unknown error occurred') : STATUS_LABEL[status]}
+          <p className="text-xs text-indigo-300/60 mt-0.5 max-h-28 overflow-y-auto leading-relaxed [scrollbar-width:thin]">
+            {isFailed ? (
+              <>
+                {errorCode && ERROR_CODE_LABEL[errorCode] && (
+                  <span className="text-red-300/90 font-semibold">
+                    {ERROR_CODE_LABEL[errorCode]}
+                    {': '}
+                  </span>
+                )}
+                <span className="break-words text-white/80">
+                  {clipErrorForUi(error || 'An unknown error occurred.')}
+                </span>
+              </>
+            ) : (
+              STATUS_LABEL[status]
+            )}
           </p>
         </div>
         {isFailed && (
@@ -136,10 +170,21 @@ function GenerationProgress({ status, progress, error, onRetry }: {
 interface Props {
   chatId: string;
   question: string;
-  explanationText: string;
+  /** Short voiceover from metadata (preferred). */
+  videoScript: string;
+  /** Used if the script is thin, and as context for Manim. */
+  keyPoints?: string[];
+  /** Full written answer — fallback only when script/key points are missing. */
+  explanationFallback: string;
 }
 
-export default function ManimVideoPlayer({ chatId, question, explanationText }: Props) {
+export default function ManimVideoPlayer({
+  chatId,
+  question,
+  videoScript,
+  keyPoints = [],
+  explanationFallback,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -151,6 +196,7 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
   const [jobStatus, setJobStatus] = useState<JobStatus>('none');
   const [jobProgress, setJobProgress] = useState(0);
   const [jobError, setJobError] = useState('');
+  const [jobErrorCode, setJobErrorCode] = useState<string | undefined>(undefined);
   const [isStarted, setIsStarted] = useState(false);
 
   // Playback state
@@ -175,6 +221,7 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
       setJobStatus(data.status);
       setJobProgress(data.progress ?? 0);
       setJobError(data.error ?? '');
+      setJobErrorCode(data.error_code || undefined);
       if (data.status === 'ready' || data.status === 'failed') {
         clearInterval(pollTimer.current);
       }
@@ -186,10 +233,29 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
     pollStatus();
   }, [pollStatus]);
 
+  // Background prefetch: server may have started a job — treat as started once we see progress
+  useEffect(() => {
+    if (jobStatus === 'queued' || jobStatus === 'rendering' || jobStatus === 'audio' || jobStatus === 'stitching') {
+      setIsStarted(true);
+    }
+  }, [jobStatus]);
+
+  // Passive poll while idle so a prefetch job is picked up without clicking Generate
+  useEffect(() => {
+    if (isStarted || jobStatus !== 'none') return;
+    let ticks = 0;
+    const id = window.setInterval(() => {
+      ticks += 1;
+      void pollStatus();
+      if (ticks >= 40) window.clearInterval(id);
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [isStarted, jobStatus, pollStatus]);
+
   // Start polling when generation begins
   useEffect(() => {
     if (isStarted && jobStatus !== 'ready' && jobStatus !== 'failed') {
-      pollTimer.current = setInterval(pollStatus, 3000);
+      pollTimer.current = setInterval(pollStatus, 2000);
     }
     return () => clearInterval(pollTimer.current);
   }, [isStarted, jobStatus, pollStatus]);
@@ -200,6 +266,7 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
     setJobStatus('queued');
     setJobProgress(2);
     setJobError('');
+    setJobErrorCode(undefined);
     try {
       await fetch(`${VIDEO_SERVICE}/api/generate-math-video`, {
         method: 'POST',
@@ -207,34 +274,17 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
         body: JSON.stringify({
           chatId,
           question,
-          explanation_text: explanationText,
+          explanation_text: explanationFallback,
+          video_script: videoScript,
+          key_points: keyPoints,
         }),
       });
-    } catch (e) {
+    } catch {
       setJobStatus('failed');
       setJobError('Could not reach video service. Is it running on port 8001?');
+      setJobErrorCode('network');
     }
-  }, [chatId, question, explanationText]);
-
-  // ── Keyboard shortcuts ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (jobStatus !== 'ready') return;
-    const handleKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      const v = videoRef.current;
-      if (!v) return;
-      switch (e.key) {
-        case ' ': e.preventDefault(); v.paused ? v.play() : v.pause(); break;
-        case 'f': case 'F': handleFullscreen(); break;
-        case 'ArrowLeft': v.currentTime = Math.max(0, v.currentTime - 5); break;
-        case 'ArrowRight': v.currentTime = Math.min(v.duration, v.currentTime + 5); break;
-        case 'm': case 'M': v.muted = !v.muted; setMuted(v.muted); break;
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [jobStatus]);
+  }, [chatId, question, videoScript, keyPoints, explanationFallback]);
 
   // ── Fullscreen ──────────────────────────────────────────────────────────────
   const handleFullscreen = useCallback(() => {
@@ -246,6 +296,41 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
       document.exitFullscreen().catch(() => {});
     }
   }, []);
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (jobStatus !== 'ready') return;
+    const handleKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const v = videoRef.current;
+      if (!v) return;
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          if (v.paused) void v.play();
+          else void v.pause();
+          break;
+        case 'f':
+        case 'F':
+          handleFullscreen();
+          break;
+        case 'ArrowLeft':
+          v.currentTime = Math.max(0, v.currentTime - 5);
+          break;
+        case 'ArrowRight':
+          v.currentTime = Math.min(v.duration, v.currentTime + 5);
+          break;
+        case 'm':
+        case 'M':
+          v.muted = !v.muted;
+          setMuted(v.muted);
+          break;
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [jobStatus, handleFullscreen]);
 
   useEffect(() => {
     const handler = () => setFullscreen(!!document.fullscreenElement);
@@ -326,13 +411,13 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
             <span className="text-3xl">🎬</span>
           </div>
           <div>
-            <p className="text-white font-semibold text-base">Generate Manim Animation</p>
+            <p className="text-white font-semibold text-base">Generate lesson video</p>
             <p className="text-indigo-300/60 text-xs mt-1 max-w-xs">
-              Creates a real step-by-step animated video using Manim + voiceover. Takes ~1–3 minutes.
+              About 1–2 minutes: Manim visuals plus a short spoken summary of the topic (not the full written answer). Generation takes ~1–3 minutes.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 justify-center text-[10px] text-indigo-300/50">
-            {['Step-by-step math', 'Voice narration', 'Fullscreen', 'Seekable'].map(f => (
+            {['Short overview', 'Voice summary', 'Fullscreen', 'Seekable'].map(f => (
               <span key={f} className="px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">{f}</span>
             ))}
           </div>
@@ -354,6 +439,7 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
         status={jobStatus}
         progress={jobProgress}
         error={jobError}
+        errorCode={jobErrorCode}
         onRetry={startGeneration}
       />
     );
@@ -482,7 +568,12 @@ export default function ManimVideoPlayer({ chatId, question, explanationText }: 
             {/* Play / Pause */}
             <button
               className="w-8 h-8 rounded-lg hover:bg-white/15 flex items-center justify-center transition-colors"
-              onClick={() => { const v = videoRef.current; if (v) v.paused ? v.play() : v.pause(); }}
+              onClick={() => {
+                const v = videoRef.current;
+                if (!v) return;
+                if (v.paused) void v.play();
+                else void v.pause();
+              }}
               title={playing ? 'Pause (Space)' : 'Play (Space)'}
             >
               {playing

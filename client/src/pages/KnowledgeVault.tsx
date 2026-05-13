@@ -13,6 +13,21 @@ interface HistoryItem {
   subjectTag: string;
   textAnswer: string;
   createdAt: string;
+  chatId?: string | null;
+}
+
+function resolveChatForHistory(item: HistoryItem, chatList: ChatItem[]): string | null {
+  if (item.chatId) return item.chatId;
+  const q = item.rawQuestion.trim().toLowerCase();
+  if (!q) return null;
+  const exact = chatList.find(c => c.title.trim().toLowerCase() === q);
+  if (exact) return exact._id;
+  const prefix = q.slice(0, 40);
+  const partial = chatList.find(c => {
+    const t = c.title.trim().toLowerCase();
+    return t.includes(prefix) || prefix.includes(t.slice(0, Math.min(20, t.length)));
+  });
+  return partial?._id ?? null;
 }
 
 const subjectIcons: Record<string, React.ReactNode> = {
@@ -67,7 +82,9 @@ export default function KnowledgeVault({ onOpenChat }: KnowledgeVaultProps) {
         setChats(chatData);
         setHistory(historyRes.data);
         setTags(tagRes.data);
-      } catch {}
+      } catch {
+        void 0;
+      }
       setLoading(false);
     };
 
@@ -189,13 +206,24 @@ export default function KnowledgeVault({ onOpenChat }: KnowledgeVaultProps) {
           <div className="bg-white dark:bg-gpai-surface rounded-3xl border border-gray-100 dark:border-gpai-border shadow-sm divide-y divide-gray-50 dark:divide-gpai-border">
             {filteredHistory.slice(0, 20).map((item, i) => {
               const colors = subjectColors[item.subjectTag] || defaultColors;
+              const openChatTarget = resolveChatForHistory(item, chats);
               return (
                 <motion.div
                   key={item._id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.04 }}
-                  className="flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gpai-surface-2 cursor-pointer transition-colors first:rounded-t-3xl last:rounded-b-3xl"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && openChatTarget) onOpenChat?.(openChatTarget);
+                  }}
+                  onClick={() => {
+                    if (openChatTarget) onOpenChat?.(openChatTarget);
+                  }}
+                  className={`flex items-center gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gpai-surface-2 transition-colors first:rounded-t-3xl last:rounded-b-3xl ${
+                    openChatTarget ? 'cursor-pointer' : 'cursor-default opacity-90'
+                  }`}
                 >
                   <div className={`w-9 h-9 rounded-xl ${colors.bg} ${colors.border} dark:bg-gpai-surface-2 dark:border-gpai-border border flex items-center justify-center shrink-0`}>
                     <BookOpen size={15} className={`${colors.icon} dark:text-gpai-primary`} />
@@ -208,6 +236,9 @@ export default function KnowledgeVault({ onOpenChat }: KnowledgeVaultProps) {
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-[10px] font-medium bg-gray-100 dark:bg-gpai-surface-2 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full capitalize">{item.subjectTag}</span>
+                    {openChatTarget && (
+                      <p className="text-[10px] text-gpai-primary mt-1 font-medium">Open chat →</p>
+                    )}
                     <p className="text-[10px] text-gray-400 dark:text-gpai-muted mt-1 flex items-center gap-0.5 justify-end">
                       <Clock size={9} /> {new Date(item.createdAt).toLocaleDateString()}
                     </p>

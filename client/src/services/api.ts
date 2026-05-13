@@ -73,7 +73,7 @@ export interface MessageItem {
       scene_number: number;
       narration: string;
       elements: {
-        type: 'text' | 'box' | 'arrow' | 'circle' | 'icon' | 'underline' | 'flowchart' | 'formula_box' | 'graph_axes';
+        type: 'text' | 'box' | 'arrow' | 'circle' | 'icon' | 'underline' | 'flowchart' | 'formula_box' | 'graph_axes' | 'bullets' | 'chart';
         content: string;
         position: string;
         color: string;
@@ -259,6 +259,10 @@ export async function moveChatToFolder(chatId: string, folderId: string | null):
   return data;
 }
 
+export async function deleteChatFolder(folderId: string): Promise<void> {
+  await client.delete(`/api/chats/folders/${folderId}`);
+}
+
 // --- Analytics API ---
 
 export interface HeatmapCell { date: string; count: number; intensity: number }
@@ -270,6 +274,12 @@ export interface AnalyticsStats {
   weeklyQuestions: number;
   subjectBreakdown: { subject: string; count: number; percent: number }[];
   weeklyData: { label: string; count: number }[];
+  recentActivity?: {
+    rawQuestion: string;
+    subjectTag: string;
+    createdAt: string;
+    chatId: string | null;
+  }[];
 }
 
 export async function getHeatmap(): Promise<HeatmapCell[][]> {
@@ -299,6 +309,18 @@ export async function getProfile(): Promise<UserProfile> {
   return data;
 }
 
+export interface RateLimitStatus {
+  limit: number;
+  used: number;
+  remaining: number;
+  resetAt: string | null;
+}
+
+export async function getRateLimitStatus(): Promise<RateLimitStatus> {
+  const { data } = await client.get('/api/profile/rate-limit');
+  return data;
+}
+
 export async function updateProfile(updates: Partial<Pick<UserProfile, 'name' | 'institutionType' | 'institutionName' | 'gradeYear'>>): Promise<UserProfile> {
   const { data } = await client.patch('/api/profile', updates);
   return data;
@@ -308,8 +330,18 @@ export async function changePassword(currentPassword: string, newPassword: strin
   await client.patch('/api/profile/password', { currentPassword, newPassword });
 }
 
-export const generateVideo = async (chatId: string, question: string, explanation: string) => {
-  const response = await client.post(`/api/chats/${chatId}/generate-video`, { question, explanation });
+export const generateVideo = async (
+  chatId: string,
+  question: string,
+  explanation: string,
+  options?: { videoScript?: string; keyPoints?: string[] },
+) => {
+  const response = await client.post(`/api/chats/${chatId}/generate-video`, {
+    question,
+    explanation,
+    videoScript: options?.videoScript,
+    keyPoints: options?.keyPoints,
+  });
   return response.data;
 };
 

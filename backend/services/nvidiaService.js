@@ -31,6 +31,8 @@ FORMATTING (rich markdown — render exactly like ChatGPT):
 - Use tables for comparisons (markdown GFM tables).
 - Use \`inline code\` for identifiers, and fenced code blocks (\`\`\`language) for source code.
 - Use proper LaTeX for ALL math: inline as $x^2 + bx + c = 0$, block as $$x = \\\\frac{-b \\\\pm \\\\sqrt{b^2-4ac}}{2a}$$. NEVER write math as plain ASCII.
+- **Tables:** Any cell with math must wrap the math in $...$, e.g. $S \\rightarrow aSb \\mid b$, $\\alpha \\Rightarrow^* \\beta$. Never put raw \\alpha, \\rightarrow, \\geq in a cell without $...$.
+- **Set-builder / conditions:** Inside math, use \\mid instead of | so markdown table pipes do not break: $\\{ w \\mid w \\in L \\}$, $\\{ a^n b \\mid n \\geq 0 \\}$.
 
 DIAGRAMS — STRICT MERMAID SYNTAX (the diagram MUST render):
 - Use a fenced \`\`\`mermaid block. NEVER use ASCII-art (no /, \\, ---->, |, +-+ boxes).
@@ -151,7 +153,7 @@ Schema:
       "formula": null
     }
   ],
-  "videoScript": "60-90 second spoken teacher script",
+  "videoScript": "90-120 second spoken SUMMARY only — like a short teacher voiceover, NOT the full written answer. Plain English; describe math in words.",
   "subjectTag": "one of: mathematics, physics, chemistry, biology, computer_science, history, economics, general",
   "difficultyLevel": "one of: easy, medium, hard",
   "questionCategory": "mathematical OR theoretical",
@@ -160,16 +162,16 @@ Schema:
     "scenes": [
       {
         "scene_number": 1,
-        "narration": "What the narrator says for this scene (2-3 sentences, engaging and clear)",
+        "narration": "Plain spoken English only (no $, LaTeX, markdown, or arrows). Describe any math in words.",
         "elements": [
           {
             "type": "text",
-            "content": "Content to draw/write",
-            "position": "top_left",
+            "content": "Short line; max ~140 chars",
+            "position": "top_center",
             "color": "#1e40af"
           }
         ],
-        "duration": 5
+        "duration": 6
       }
     ]
   }
@@ -177,7 +179,7 @@ Schema:
 
 Rules:
 - keyPoints: EXACTLY 4 concise takeaway points.
-- chartData: Include ONLY when the topic involves genuine quantitative/comparative data with REAL numbers. Format: { "type":"bar", "title":"...", "labels":["..."], "values":[numbers] }. Otherwise set to null.
+- chartData: Prefer a bar chart whenever the answer compares **3–8 items** on one axis (taxonomy levels, hierarchy restrictiveness, complexity, phases, pros/cons scores, categories). Use integers **1–10**, ranks, or **0–100** “strength” scores — they need not be measured empirically as long as the comparison is pedagogically honest. If the topic is a hierarchy (e.g. Chomsky), chart restrictiveness or expressive power. Set to null ONLY when no sensible comparison exists (single fact with nothing to contrast).
 
 ANIMATION SCRIPT — adaptive, custom slides (5–7 slides):
 
@@ -192,20 +194,21 @@ ANIMATION SCRIPT — adaptive, custom slides (5–7 slides):
 
   Adapt slides to the question:
 
-  IF the question is about PROGRAMMING / DSA / algorithms / a specific language:
+  IF the question is strictly PROGRAMMING / DSA / algorithms / a specific language (coding task):
     → At least 2 slides MUST set "code" to a working snippet:
       "code": { "language": "python", "source": "def factorial(n):\\n    return 1 if n == 0 else n * factorial(n - 1)" }
     → Use the language the student asked about (python, javascript, java, c, cpp, sql, html, css, bash, etc.).
     → Source MUST be syntactically correct, runnable, and ≤ 14 lines.
 
-  IF the question involves GRAPHS, TREES, FLOWS, STATES, SEQUENCES, ER, ARCHITECTURE, MINDMAP:
+  IF the question involves GRAPHS, TREES, FLOWS, STATE MACHINES, GRAMMAR DERIVATIONS, CHOMSKY HIERARCHY, AUTOMATA, COMPILER PIPELINES, or any STRUCTURE with relations between named parts:
     → At least 1 slide MUST set "diagram" to valid Mermaid source (no \`\`\`mermaid fence, just the source):
-      "diagram": "graph TD\\n  A[Start] --> B{Decision}\\n  B -->|yes| C[Do X]\\n  B -->|no| D[Do Y]"
+      "diagram": "graph TD\\n  A[Type-0] --> B[Type-1]\\n  B --> C[Type-2]\\n  C --> D[Type-3]"
+    → For classifications / containment (e.g. grammar classes), use graph TD or graph LR with ≤10 nodes.
     → Use ONLY valid Mermaid syntax (see edge rules):
         - Directed: A --> B    Labeled: A -->|label| B
         - Undirected: A --- B  (THREE dashes — never write A -- B)
         - sequenceDiagram uses: A->>B: msg   and  A-->>B: reply
-    → IDs must be alphanumeric (no spaces): use Alice, Root, n1.
+    → IDs must be alphanumeric (no spaces): use T0, T1, Regular, CFG.
 
   IF the question involves MATH / PHYSICS / FORMULAS / EQUATIONS:
     → At least 1 slide MUST set "formula" to a block LaTeX expression (no $$ delimiters, just the LaTeX body):
@@ -225,7 +228,7 @@ ANIMATION SCRIPT — adaptive, custom slides (5–7 slides):
 
   Set unused fields to null:  "code": null, "diagram": null, "formula": null.
 
-- videoScript: 60–90 second engaging teacher voiceover.
+- videoScript: 90–120 second engaging summary voiceover for a short lesson video (never paste or read the full explanation text).
 - subjectTag / difficultyLevel: pick exactly one from the allowed lists.
 
 QUESTION CATEGORY — classify the question:
@@ -234,52 +237,51 @@ QUESTION CATEGORY — classify the question:
   "theoretical": involves concepts, definitions, history, biology, processes, social science, CS theory,
     explanations, comparisons — anything primarily explained in words.
 
-WHITEBOARD SCRIPT — 5–6 scenes, NEVER repeat the same visual content:
+WHITEBOARD SCRIPT — plan like a storyboard (6–7 scenes), then fill elements. No duplicated story across scenes.
 
-  Each scene has:
+  PROCESS (do internally before writing JSON):
+  1) List scene purposes in order: hook → definition → mechanism → example → comparison (if any) → summary.
+  2) For each scene, assign elements so NOTHING overlaps: each scene = different teaching beat, fully explained in narration.
+
+  Scene fields:
   * "scene_number": sequential integer
-  * "narration": 2–3 engaging sentences the teacher speaks during this scene
-  * "elements": array of visual elements to draw (2–5 per scene)
-  * "duration": seconds for this scene (4–7)
+  * "narration": 2–3 sentences of plain spoken English that fully explain THIS beat (not a vague teaser). NEVER use dollar-math, double-dollar blocks, backslash-LaTeX commands, markdown emphasis or code fences, or arrow glyphs — describe formulas and relationships in words (e.g. "x squared plus two x" rather than "x^2+2x").
+  * "elements": 2–4 elements (quality over quantity)
+  * "duration": 5–8 seconds
 
-  Element types and rules:
-    "text"      — writes text letter-by-letter (like handwriting)
-    "box"       — a rectangle drawn around important content (for key terms or titles)
-    "arrow"     — directional arrow with a label (shows relationships / flow)
-    "circle"    — circle with a label inside (for highlighting nodes or steps)
-    "icon"      — a simple labeled icon/symbol (e.g. "💡 Key Insight", "⚠️ Warning")
-    "underline" — underline drawn under important text already on canvas
-    "flowchart" — a 3-4 node flowchart with steps (describe each node in content like "A→B→C")
-    "formula_box" — formula enclosed in a highlighted box (math only)
-    "graph_axes" — coordinate axes with a plotted curve hint (math only)
+  LAYOUT LAW — prevents messy overlap:
+  * For types text, box, bullets, formula_box, flowchart, graph_axes, chart: use a UNIQUE "position" per scene — NEVER repeat the same position twice for these types in the same scene.
+  * Spread the canvas: e.g. title "top_center", body "center_left", diagram "center_right", summary "bottom_center".
+  * Keep each "text"/"box"/"bullets" string under ~140 characters; bullets: at most 4 lines, each line one short clause.
 
-  Positions: "top_left", "top_center", "top_right", "center_left", "center", "center_right",
-              "bottom_left", "bottom_center", "bottom_right"
+  Element types:
+    "text"         — short typography (handwriting animation)
+    "box"          — highlight one short phrase
+    "arrow"        — relationship; content like "A→label" or use label after →
+    "circle"       — one node label (≤14 chars in content)
+    "icon"         — "emoji rest of caption"
+    "underline"    — one emphasis line
+    "bullets"      — newline-separated points (not duplicated elsewhere in same scene)
+    "flowchart"    — chain only: "Step A→Step B→Step C" (use →), CS/process topics
+    "formula_box"  — math/physics formula text only (no LaTeX delimiters)
+    "graph_axes"   — ONLY when plotting a function/curve is essential (see below)
+    "chart"        — REQUIRED whenever chartData is non-null: set "content" to the SAME title as chartData.title; one chart per entire whiteboard; place in the scene where you discuss comparison
 
-  Colors: use educational bright colors:
-    Blue: "#1e40af"  |  Red: "#dc2626"  |  Green: "#16a34a"  |  Purple: "#7c3aed"
-    Orange: "#ea580c"  |  Teal: "#0891b2"  |  Black: "#1f2937"
+  graph_axes — STRICT (stops wrong “math graph” on every topic):
+  * Use ONLY if questionCategory is "mathematical" AND (subjectTag is "mathematics" OR "physics") AND the answer truly needs a plotted curve in x–y space.
+  * NEVER use graph_axes for computer_science, history, biology, economics, chemistry, general, or language-style theory — use "flowchart", "circle", "arrow", or "chart" instead.
 
-  IF questionCategory = "mathematical":
-    Scene 1: Title + problem statement (text + box)
-    Scene 2: Key formula in a formula_box with variable definitions (formula_box + text labels)
-    Scene 3: Step-by-step solution — step labels with arrows showing progression
-    Scene 4: Graph or geometric diagram if relevant (graph_axes or shapes) — else worked example
-    Scene 5: Final answer highlighted in a box + key takeaways
-    → Use formula_box for all formulas. Use graph_axes if the topic involves a plotted function.
-    → Each step must be numbered ("Step 1:", "Step 2:", etc.) as text elements.
+  chart + chartData:
+  * If chartData is an object with labels and values (bar comparison), you MUST include exactly one "chart" element in the whiteboard in the scene where you interpret that comparison.
+  * The server cache (Redis) stores chartData with the same payload as the chat; the whiteboard must tell the same story.
 
-  IF questionCategory = "theoretical":
-    Scene 1: Topic title + central concept definition (text + box, colorful)
-    Scene 2: Flowchart OR diagram showing the process/structure (flowchart element)
-    Scene 3: Key components with circle labels and arrows between them
-    Scene 4: Real-world example or analogy (icon + text)
-    Scene 5: Summary — 3 bullet points (use • or -)
-    → You MUST include bullet points in your text elements to explain concepts clearly.
-    → You MUST include relevant drawings, icons, or flowcharts in EVERY scene to make it highly visual.
-    → Use flowcharts to show processes. Use circles for nodes/components.
-    → Make it colorful: each scene should use a different primary color.
-    → Avoid plain text-only scenes — every scene must have at least one non-text element.`;
+  Subject-fit examples:
+  * computer_science / algorithms / grammars: flowchart, circles, arrows; NEVER graph_axes unless it's numeric algorithm analysis with axes.
+  * mathematics / physics (functions): formula_box + graph_axes only when a curve matters.
+  * history / economics / biology: bullets + icon + arrow timeline; use "chart" if chartData compares categories.
+
+  questionCategory = "mathematical": include formula_box where formulas matter; number steps in text ("Step 1:", ...).
+  questionCategory = "theoretical": every scene needs at least one non-text visual (flowchart, circle, arrow, icon, or chart), not only plain text.`;
 
 async function getMetadata(question, grade, profileContext = {}) {
   const userMsg = `Question: "${question}"\nStudent grade: ${grade}\nInstitution type: ${profileContext.institutionType || ''}\nInstitution: ${profileContext.institutionName || ''}`;

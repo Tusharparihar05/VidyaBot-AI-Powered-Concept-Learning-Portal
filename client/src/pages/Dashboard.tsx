@@ -1,8 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MessageSquare, Trash2, Sparkles, Search, ArrowRight, Loader2, Send, MoreVertical, FolderPlus } from 'lucide-react';
-import { listChats, createChat, getChatMessages, sendMessageStream, sendTempMessageStream, deleteChat, listChatFolders, createChatFolder, moveChatToFolder, type ChatItem, type ChatFolderItem, type MessageItem } from '../services/api';
+import {
+  Plus, MessageSquare, Trash2, Sparkles, Search, ArrowRight, Loader2, Send, MoreVertical, FolderPlus,
+  Folder, ChevronRight, FolderMinus,
+} from 'lucide-react';
+import { listChats, createChat, getChatMessages, sendMessageStream, sendTempMessageStream, deleteChat, listChatFolders, createChatFolder, moveChatToFolder, deleteChatFolder, type ChatItem, type ChatFolderItem, type MessageItem } from '../services/api';
 import MessageBubble from '../components/dashboard/MessageBubble';
+import { RATE_LIMIT_REFRESH_EVENT } from '../constants/rateLimitEvents';
 
 const suggestions = [
   'Explain Quantum Entanglement',
@@ -23,6 +27,7 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
   const [tempChatId, setTempChatId] = useState<string>('temp-default');
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [folders, setFolders] = useState<ChatFolderItem[]>([]);
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [menuChatId, setMenuChatId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [sending, setSending] = useState(false);
@@ -32,12 +37,15 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
   const [streamingMeta, setStreamingMeta] = useState<Partial<MessageItem> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const streamingMetaRef = useRef<Partial<MessageItem> | null>(null);
 
   useEffect(() => {
     listChats()
       .then(data => { setChats(data); setLoadingChats(false); })
       .catch(() => setLoadingChats(false));
-    listChatFolders().then(setFolders).catch(() => {});
+    listChatFolders().then(setFolders).catch(() => {
+      void 0;
+    });
   }, []);
 
   const loadMessages = useCallback(async (chatId: string) => {
@@ -69,7 +77,9 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
       setChats(prev => [chat, ...prev]);
       setActiveChatId(chat._id);
       setMessages([]);
-    } catch {}
+    } catch {
+      void 0;
+    }
   }, [temporaryMode]);
 
   const handleDeleteChat = useCallback(async (chatId: string) => {
@@ -80,8 +90,45 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
         setActiveChatId(null);
         setMessages([]);
       }
-    } catch {}
+    } catch {
+      void 0;
+    }
   }, [activeChatId]);
+
+  const handleRemoveFromFolder = useCallback(async (chatId: string) => {
+    try {
+      const updated = await moveChatToFolder(chatId, null);
+      setChats(prev =>
+        prev.map(c =>
+          c._id === chatId ? { ...c, folderId: updated.folderId ?? null } : c,
+        ),
+      );
+    } catch {
+      void 0;
+    }
+  }, []);
+
+  const handleDeleteFolder = useCallback(async (folderId: string, folderName: string) => {
+    if (
+      !window.confirm(
+        `Delete folder "${folderName}"? Chats inside will stay in your sidebar as Unfiled (not deleted).`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteChatFolder(folderId);
+      setFolders(prev => prev.filter(f => f._id !== folderId));
+      setChats(prev => prev.map(c => (c.folderId === folderId ? { ...c, folderId: null } : c)));
+      setCollapsedFolders(prev => {
+        const next = { ...prev };
+        delete next[folderId];
+        return next;
+      });
+    } catch {
+      void 0;
+    }
+  }, []);
 
   const handleAddToFolder = useCallback(async (chatId: string) => {
     const existing = folders.map(f => f.name).join(', ');
@@ -106,8 +153,32 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
     try {
       const updated = await moveChatToFolder(chatId, folder._id);
       setChats(prev => prev.map(c => (c._id === chatId ? { ...c, folderId: updated.folderId } : c)));
-    } catch {}
+    } catch {
+      void 0;
+    }
   }, [folders]);
+
+  const { folderGroups, unfiledChats } = useMemo(() => {
+    const byFolder = new Map<string, ChatItem[]>();
+    for (const f of folders) byFolder.set(f._id, []);
+    const unfiled: ChatItem[] = [];
+    const knownFolderIds = new Set(folders.map(f => f._id));
+    for (const c of chats) {
+      if (c.folderId && knownFolderIds.has(c.folderId)) {
+        byFolder.get(c.folderId)!.push(c);
+      } else {
+        unfiled.push(c);
+      }
+    }
+    const folderGroups = folders
+      .map(f => ({ folder: f, chats: byFolder.get(f._id) || [] }))
+      .filter(g => g.chats.length > 0);
+    return { folderGroups, unfiledChats: unfiled };
+  }, [chats, folders]);
+
+  const toggleFolderCollapsed = useCallback((folderId: string) => {
+    setCollapsedFolders(prev => ({ ...prev, [folderId]: !prev[folderId] }));
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -136,6 +207,7 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
     setSending(true);
     setStreamingContent('');
     setStreamingMeta(null);
+    streamingMetaRef.current = null;
 
     const tempUserMsg: MessageItem = {
       _id: `temp-user-${Date.now()}`,
@@ -167,7 +239,7 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
             break;
 
           case 'metadata':
-            setStreamingMeta({
+            streamingMetaRef.current = {
               keyPoints: event.keyPoints,
               chartData: event.chartData,
               animationScript: event.animationScript,
@@ -176,13 +248,28 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
               difficultyLevel: event.difficultyLevel,
               questionCategory: event.questionCategory,
               whiteboardScript: event.whiteboardScript,
-            });
+            };
+            setStreamingMeta(streamingMetaRef.current);
             break;
 
-          case 'done':
+          case 'done': {
             setStreamingContent('');
+            const meta = streamingMetaRef.current;
+            streamingMetaRef.current = null;
             setStreamingMeta(null);
-            setMessages(prev => [...prev, event.message]);
+            const merged: MessageItem = { ...event.message };
+            if (meta) {
+              const patch = meta as Partial<MessageItem>;
+              if (!merged.whiteboardScript && patch.whiteboardScript) merged.whiteboardScript = patch.whiteboardScript;
+              if (!merged.questionCategory && patch.questionCategory) merged.questionCategory = patch.questionCategory;
+              if (!merged.chartData && patch.chartData) merged.chartData = patch.chartData;
+              if ((!merged.keyPoints || merged.keyPoints.length === 0) && patch.keyPoints?.length) merged.keyPoints = patch.keyPoints;
+              if (!merged.animationScript?.length && patch.animationScript?.length) merged.animationScript = patch.animationScript;
+              if (!merged.videoScript && patch.videoScript) merged.videoScript = patch.videoScript;
+              if (!merged.subjectTag && patch.subjectTag) merged.subjectTag = patch.subjectTag;
+              if (!merged.difficultyLevel && patch.difficultyLevel) merged.difficultyLevel = patch.difficultyLevel;
+            }
+            setMessages(prev => [...prev, merged]);
             if (!temporaryMode) {
               setChats(prev => prev.map(c =>
                 c._id === chatId
@@ -191,10 +278,12 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
               ));
             }
             break;
+          }
 
           case 'error': {
             setStreamingContent('');
             setStreamingMeta(null);
+            streamingMetaRef.current = null;
             const errorMsg: MessageItem = {
               _id: `error-${Date.now()}`,
               chatId: chatId!,
@@ -210,6 +299,7 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
     } catch (err: unknown) {
       setStreamingContent('');
       setStreamingMeta(null);
+      streamingMetaRef.current = null;
       let message = 'Something went wrong';
       if (err instanceof Error) message = err.message;
       const errorMsg: MessageItem = {
@@ -222,6 +312,7 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
       setMessages(prev => [...prev, errorMsg]);
     }
 
+    window.dispatchEvent(new CustomEvent(RATE_LIMIT_REFRESH_EVENT));
     setSending(false);
   }, [query, sending, activeChatId, temporaryMode, tempChatId]);
 
@@ -277,45 +368,144 @@ export default function Dashboard({ openChatId = null, onOpenChatHandled }: Dash
               {temporaryMode ? 'Temporary mode — chats are not stored' : 'No chats yet'}
             </p>
           ) : (
-            chats.map(chat => (
-              <div
-                key={chat._id}
-                onClick={() => loadMessages(chat._id)}
-                className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all text-left w-full ${
-                  activeChatId === chat._id
-                    ? 'bg-gpai-primary-soft border border-gpai-primary/30'
-                    : 'hover:bg-gpai-primary-soft/40 border border-transparent'
-                }`}
-              >
-                <MessageSquare size={14} className={activeChatId === chat._id ? 'text-gpai-primary shrink-0' : 'text-gray-400 dark:text-gpai-muted shrink-0'} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate">{chat.title}</p>
-                  <p className="text-[10px] text-gray-400 dark:text-gpai-muted">{chat.messageCount} msgs</p>
-                </div>
-                <button
-                  onClick={e => { e.stopPropagation(); setMenuChatId(prev => prev === chat._id ? null : chat._id); }}
-                  className="opacity-0 group-hover:opacity-100 text-gray-300 dark:text-gpai-muted hover:text-gray-500 dark:hover:text-gray-200 transition-all shrink-0"
-                >
-                  <MoreVertical size={12} />
-                </button>
-                {menuChatId === chat._id && (
-                  <div className="absolute right-2 mt-16 z-20 bg-white dark:bg-gpai-surface-2 border border-gray-200 dark:border-gpai-border rounded-lg shadow-lg py-1 min-w-36">
-                    <button
-                      onClick={e => { e.stopPropagation(); setMenuChatId(null); void handleAddToFolder(chat._id); }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gpai-surface flex items-center gap-2"
-                    >
-                      <FolderPlus size={12} /> Add to Folder
-                    </button>
-                    <button
-                      onClick={e => { e.stopPropagation(); setMenuChatId(null); void handleDeleteChat(chat._id); }}
-                      className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
-                    >
-                      <Trash2 size={12} /> Delete Chat
-                    </button>
+            <>
+              {folderGroups.map(({ folder, chats: folderChats }) => {
+                const collapsed = !!collapsedFolders[folder._id];
+                return (
+                  <div key={folder._id} className="mb-2">
+                    <div className="flex items-center gap-0.5 w-full px-1 py-0.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gpai-surface-2/80 transition-colors group/folderhead">
+                      <button
+                        type="button"
+                        onClick={() => toggleFolderCollapsed(folder._id)}
+                        className="flex flex-1 items-center gap-1.5 min-w-0 py-1 pl-1 pr-0.5 rounded-md text-left"
+                      >
+                        <ChevronRight
+                          size={14}
+                          className={`shrink-0 text-gray-400 transition-transform ${collapsed ? '' : 'rotate-90'}`}
+                        />
+                        <Folder size={14} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate flex-1 min-w-0">
+                          {folder.name}
+                        </span>
+                        <span className="text-[10px] text-gray-400 dark:text-gpai-muted shrink-0">{folderChats.length}</span>
+                      </button>
+                      <button
+                        type="button"
+                        title="Delete folder"
+                        aria-label={`Delete folder ${folder.name}`}
+                        onClick={e => {
+                          e.stopPropagation();
+                          void handleDeleteFolder(folder._id, folder.name);
+                        }}
+                        className="shrink-0 p-1.5 rounded-md text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-80 group-hover/folderhead:opacity-100 transition-all"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    {!collapsed && folderChats.map(chat => (
+                      <div
+                        key={chat._id}
+                        onClick={() => loadMessages(chat._id)}
+                        className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all text-left w-full ${
+                          activeChatId === chat._id
+                            ? 'bg-gpai-primary-soft border border-gpai-primary/30'
+                            : 'hover:bg-gpai-primary-soft/40 border border-transparent'
+                        }`}
+                      >
+                        <MessageSquare size={14} className={activeChatId === chat._id ? 'text-gpai-primary shrink-0' : 'text-gray-400 dark:text-gpai-muted shrink-0'} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate">{chat.title}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-gpai-muted">{chat.messageCount} msgs</p>
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); setMenuChatId(prev => prev === chat._id ? null : chat._id); }}
+                          className="opacity-0 group-hover:opacity-100 text-gray-300 dark:text-gpai-muted hover:text-gray-500 dark:hover:text-gray-200 transition-all shrink-0"
+                        >
+                          <MoreVertical size={12} />
+                        </button>
+                        {menuChatId === chat._id && (
+                          <div className="absolute right-2 top-9 z-20 bg-white dark:bg-gpai-surface-2 border border-gray-200 dark:border-gpai-border rounded-lg shadow-lg py-1 min-w-40">
+                            <button
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation();
+                                setMenuChatId(null);
+                                void handleRemoveFromFolder(chat._id);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gpai-surface flex items-center gap-2"
+                            >
+                              <FolderMinus size={12} /> Remove from folder
+                            </button>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setMenuChatId(null); void handleAddToFolder(chat._id); }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gpai-surface flex items-center gap-2"
+                            >
+                              <FolderPlus size={12} /> Move folder…
+                            </button>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); setMenuChatId(null); void handleDeleteChat(chat._id); }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
+                            >
+                              <Trash2 size={12} /> Delete Chat
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
-            ))
+                );
+              })}
+              {unfiledChats.length > 0 && (
+                <div className={folderGroups.length ? 'mt-2 pt-2 border-t border-gray-100 dark:border-gpai-border' : ''}>
+                  {folderGroups.length > 0 && (
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gpai-muted px-2 mb-1">Unfiled</p>
+                  )}
+                  {unfiledChats.map(chat => (
+                    <div
+                      key={chat._id}
+                      onClick={() => loadMessages(chat._id)}
+                      className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all text-left w-full ${
+                        activeChatId === chat._id
+                          ? 'bg-gpai-primary-soft border border-gpai-primary/30'
+                          : 'hover:bg-gpai-primary-soft/40 border border-transparent'
+                      }`}
+                    >
+                      <MessageSquare size={14} className={activeChatId === chat._id ? 'text-gpai-primary shrink-0' : 'text-gray-400 dark:text-gpai-muted shrink-0'} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800 dark:text-gray-100 truncate">{chat.title}</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gpai-muted">{chat.messageCount} msgs</p>
+                      </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); setMenuChatId(prev => prev === chat._id ? null : chat._id); }}
+                        className="opacity-0 group-hover:opacity-100 text-gray-300 dark:text-gpai-muted hover:text-gray-500 dark:hover:text-gray-200 transition-all shrink-0"
+                      >
+                        <MoreVertical size={12} />
+                      </button>
+                      {menuChatId === chat._id && (
+                        <div className="absolute right-2 top-9 z-20 bg-white dark:bg-gpai-surface-2 border border-gray-200 dark:border-gpai-border rounded-lg shadow-lg py-1 min-w-36">
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); setMenuChatId(null); void handleAddToFolder(chat._id); }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gpai-surface flex items-center gap-2"
+                          >
+                            <FolderPlus size={12} /> Add to Folder
+                          </button>
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); setMenuChatId(null); void handleDeleteChat(chat._id); }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2"
+                          >
+                            <Trash2 size={12} /> Delete Chat
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </motion.div>

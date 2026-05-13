@@ -114,6 +114,12 @@ router.get('/stats', protect, async (req, res) => {
       return { label, count: entry ? entry.count : 0 };
     });
 
+    const recentActivity = await History.find({ userId })
+      .sort({ createdAt: -1 })
+      .limit(12)
+      .select('rawQuestion subjectTag createdAt chatId')
+      .lean();
+
     const payload = {
       totalQuestions,
       totalChats,
@@ -121,6 +127,12 @@ router.get('/stats', protect, async (req, res) => {
       weeklyQuestions,
       subjectBreakdown,
       weeklyData,
+      recentActivity: recentActivity.map((h) => ({
+        rawQuestion: h.rawQuestion,
+        subjectTag: h.subjectTag || 'general',
+        createdAt: h.createdAt,
+        chatId: h.chatId ? String(h.chatId) : null,
+      })),
     };
     try {
       await redis.setex(cacheKey, 120, JSON.stringify(payload));

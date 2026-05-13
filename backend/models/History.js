@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const historySchema = new mongoose.Schema({
   userId:         { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  chatId:         { type: mongoose.Schema.Types.ObjectId, ref: 'Chat', default: null },
   rawQuestion:    { type: String, required: true },
   refinedPrompt:  { type: String, default: '' },
   textAnswer:     { type: String, default: '' },

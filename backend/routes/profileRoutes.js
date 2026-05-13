@@ -3,6 +3,25 @@ const router = express.Router();
 const protect = require('../middleware/authMiddleware');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const redis = require('../config/redis');
+const { getDailyQuestionLimit } = require('../config/dailyQuestionLimit');
+
+// GET /api/profile/rate-limit — remaining questions today (same Redis key as rateLimiter)
+router.get('/rate-limit', protect, async (req, res) => {
+  try {
+    const limit = getDailyQuestionLimit();
+    const today = new Date().toISOString().split('T')[0];
+    const key = `ratelimit:${req.user.id}:${today}`;
+    const raw = await redis.get(key);
+    const used = Math.max(0, parseInt(raw, 10) || 0);
+    const remaining = Math.max(0, limit - used);
+    const resetAt = new Date(`${today}T23:59:59.999Z`).toISOString();
+    res.json({ limit, used, remaining, resetAt });
+  } catch {
+    const limit = getDailyQuestionLimit();
+    res.json({ limit, used: 0, remaining: limit, resetAt: null });
+  }
+});
 
 // GET /api/profile — get current user profile
 router.get('/', protect, async (req, res) => {

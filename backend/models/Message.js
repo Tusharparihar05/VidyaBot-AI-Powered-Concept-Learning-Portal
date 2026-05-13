@@ -36,6 +36,8 @@ const messageSchema = new mongoose.Schema({
     formula: { type: String, default: undefined },
   }],
   videoScript: { type: String, default: undefined },
+  questionCategory: { type: String, enum: ['mathematical', 'theoretical'], default: undefined },
+  whiteboardScript: { type: mongoose.Schema.Types.Mixed, default: undefined },
   subjectTag: { type: String, default: undefined },
   difficultyLevel: { type: String, default: undefined },
   cached: { type: Boolean, default: undefined },

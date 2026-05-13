@@ -10,13 +10,34 @@ const History = require('../models/History');
 const redis = require('../config/redis');
 const { streamExplanation, getMetadata } = require('../services/nvidiaService');
 const { hashPrompt, checkRedisCache, checkMongoContent, saveContent } = require('../services/contentService');
-const { parseStructuredResponse } = require('../services/responseParser');
+const { parseStructuredResponse, polishCachedAssistantMetadata } = require('../services/responseParser');
 const CONV_CACHE_PREFIX = 'conv:';
 const CONV_CACHE_TTL = 60 * 60 * 2;
 const MAX_CONTEXT_MESSAGES = 10;
 const TEMP_CONV_PREFIX = 'tempconv:';
 
 const axios = require('axios');
+const VIDEO_SERVICE_URL = process.env.VIDEO_SERVICE_URL || 'http://localhost:8001';
+
+/** Fire-and-forget Manim job so video can be ready when the user opens the player. */
+function prefetchMathVideo(chatId, question, explanation, meta = {}) {
+  if (process.env.VIDEO_PREFETCH === '0') return;
+  const ex = String(explanation || '');
+  const videoScript = meta.videoScript != null ? String(meta.videoScript) : '';
+  const keyPoints = Array.isArray(meta.keyPoints) ? meta.keyPoints.map(String) : [];
+  if (!chatId || (ex.length < 35 && videoScript.length < 50 && keyPoints.length === 0)) return;
+  setImmediate(() => {
+    axios
+      .post(`${VIDEO_SERVICE_URL}/api/generate-math-video`, {
+        chatId: String(chatId),
+        question: String(question || '').slice(0, 4000),
+        explanation_text: ex.slice(0, 12000),
+        video_script: videoScript.slice(0, 12000),
+        key_points: keyPoints.slice(0, 8),
+      })
+      .catch((err) => console.warn('[Video prefetch]', err.message));
+  });
+}
 
 async function getConversationContext(chatId) {
   const cacheKey = `${CONV_CACHE_PREFIX}${chatId}`;
@@ -211,6 +232,26 @@ router.post('/folders', protect, async (req, res) => {
   }
 });
 
+// DELETE /api/chats/folders/:folderId — remove folder; chats become unfiled
+router.delete('/folders/:folderId', protect, async (req, res) => {
+  try {
+    const folder = await ChatFolder.findById(req.params.folderId);
+    if (!folder) return res.status(404).json({ message: 'Folder not found' });
+    if (folder.userId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    await Chat.updateMany(
+      { userId: req.user.id, folderId: folder._id },
+      { $set: { folderId: null } },
+    );
+    await ChatFolder.deleteOne({ _id: folder._id });
+    res.json({ message: 'Folder deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // POST /api/chats — create a new chat
 router.post('/', protect, async (req, res) => {
   try {
@@ -295,7 +336,7 @@ router.post('/:chatId/messages', protect, rateLimiter, async (req, res) => {
       const redisCached = await checkRedisCache(promptHash);
       if (redisCached) {
         explanation = redisCached.explanation;
-        metadata = redisCached;
+        metadata = polishCachedAssistantMetadata(redisCached);
         cached = true;
         console.log('CACHE HIT (Redis)');
       }
@@ -303,7 +344,7 @@ router.post('/:chatId/messages', protect, rateLimiter, async (req, res) => {
         const mongoCached = await checkMongoContent(promptHash);
         if (mongoCached) {
           explanation = mongoCached.explanation;
-          metadata = mongoCached;
+          metadata = polishCachedAssistantMetadata(mongoCached);
           cached = true;
           console.log('CACHE HIT (Mongo)');
         }
@@ -432,12 +473,16 @@ router.post('/:chatId/messages', protect, rateLimiter, async (req, res) => {
 
     try {
       await History.create({
-        userId, rawQuestion: question,
+        userId,
+        chatId,
+        rawQuestion: question,
         refinedPrompt: cached ? '(cached)' : '(streamed)',
         textAnswer: explanation,
         subjectTag: metadata.subjectTag,
       });
     } catch {}
+
+    prefetchMathVideo(chatId, question, explanation, metadata);
 
     try {
       await redis.del(`analytics:heatmap:${userId}`);
@@ -530,14 +575,15 @@ router.patch('/:chatId/folder', protect, async (req, res) => {
 // POST /api/chats/:chatId/generate-video
 router.post('/:chatId/generate-video', protect, async (req, res) => {
   const { chatId } = req.params;
-  const { question, explanation } = req.body;
+  const { question, explanation, videoScript, keyPoints } = req.body;
 
   try {
-      // Ping the Python Microservice running on port 8001
-      await axios.post('http://localhost:8001/api/generate-math-video', {
+      await axios.post(`${VIDEO_SERVICE_URL}/api/generate-math-video`, {
           chatId: chatId,
-          question: question,
-          explanation_text: explanation
+          question: String(question || '').slice(0, 4000),
+          explanation_text: String(explanation || '').slice(0, 12000),
+          video_script: String(videoScript || '').slice(0, 12000),
+          key_points: Array.isArray(keyPoints) ? keyPoints.map(String).slice(0, 8) : [],
       });
       
       res.status(202).json({ message: "Video generation initiated successfully." });

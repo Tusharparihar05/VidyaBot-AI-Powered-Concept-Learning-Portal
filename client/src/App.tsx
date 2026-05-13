@@ -24,7 +24,7 @@ function DashboardShell() {
   const pageComponents: Record<Page, ReactNode> = {
     dashboard: <Dashboard openChatId={openChatId} onOpenChatHandled={() => setOpenChatId(null)} />,
     knowledge: <KnowledgeVault onOpenChat={(chatId) => { setOpenChatId(chatId); setActivePage('dashboard'); }} />,
-    analytics: <Analytics />,
+    analytics: <Analytics onOpenChat={(chatId) => { setOpenChatId(chatId); setActivePage('dashboard'); }} />,
     settings: <Settings />,
     history: <HistoryPage />,
   };

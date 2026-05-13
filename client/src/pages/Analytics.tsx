@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Clock, BookOpen, Zap, Award, Target, Loader2 } from 'lucide-react';
+import { TrendingUp, Clock, BookOpen, Zap, Award, Target, Loader2, MessageSquare } from 'lucide-react';
 import { getHeatmap, getAnalyticsStats, type HeatmapCell, type AnalyticsStats } from '../services/api';
 
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -17,7 +17,7 @@ const subjectColors = [
   'bg-emerald-400', 'bg-teal-400', 'bg-orange-400', 'bg-pink-400',
 ];
 
-export default function Analytics() {
+export default function Analytics({ onOpenChat }: { onOpenChat?: (chatId: string) => void }) {
   const [heatmap, setHeatmap] = useState<HeatmapCell[][]>([]);
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -187,6 +187,54 @@ export default function Analytics() {
                   />
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+      {/* Recent questions — jump back to chat */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.55 }}
+        className="bg-white dark:bg-gpai-surface rounded-3xl border border-gray-100 dark:border-gpai-border shadow-sm p-5"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Recent questions</h3>
+            <p className="text-xs text-gray-400 dark:text-gpai-muted mt-0.5">Open the chat where you asked each question</p>
+          </div>
+          <MessageSquare size={15} className="text-gray-400 dark:text-gpai-muted" />
+        </div>
+        {!(stats?.recentActivity?.length) ? (
+          <p className="text-xs text-gray-400 dark:text-gpai-muted">No history yet.</p>
+        ) : (
+          <div className="divide-y divide-gray-50 dark:divide-gpai-border rounded-xl border border-gray-100 dark:border-gpai-border overflow-hidden">
+            {stats!.recentActivity!.map((row, i) => (
+              <button
+                key={`${row.chatId || row.rawQuestion}-${i}`}
+                type="button"
+                disabled={!row.chatId}
+                onClick={() => row.chatId && onOpenChat?.(row.chatId)}
+                className={`w-full flex items-start gap-3 p-3 text-left transition-colors ${
+                  row.chatId
+                    ? 'hover:bg-gray-50 dark:hover:bg-gpai-surface-2 cursor-pointer'
+                    : 'opacity-60 cursor-not-allowed'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-gpai-primary-soft flex items-center justify-center shrink-0">
+                  <BookOpen size={14} className="text-gpai-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-gray-800 dark:text-gray-100 line-clamp-2">{row.rawQuestion}</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gpai-muted mt-0.5 capitalize">
+                    {row.subjectTag.replace(/_/g, ' ')}
+                    {row.chatId ? ' · Tap to open chat' : ' · Chat unavailable'}
+                  </p>
+                </div>
+                <span className="text-[10px] text-gray-400 shrink-0 pt-0.5">
+                  {new Date(row.createdAt).toLocaleDateString()}
+                </span>
+              </button>
             ))}
           </div>
         )}

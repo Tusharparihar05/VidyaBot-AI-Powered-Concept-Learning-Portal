@@ -105,7 +105,7 @@ describe('parseStructuredResponse', () => {
     const input = JSON.stringify({
       explanation: 'Test',
       keyPoints: ['a', 'b', 'c', 'd'],
-      chartData: { type: 'bar', labels: ['X'], values: ['10', '20'] },
+      chartData: { type: 'bar', labels: ['X', 'Y'], values: ['10', '20'] },
     });
     const result = parseStructuredResponse(input);
     expect(result.chartData.values).toEqual([10, 20]);
