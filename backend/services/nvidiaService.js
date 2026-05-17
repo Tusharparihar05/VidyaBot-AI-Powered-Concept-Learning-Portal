@@ -267,6 +267,13 @@ WHITEBOARD SCRIPT — plan like a storyboard (6–7 scenes), then fill elements.
     "graph_axes"   — ONLY when plotting a function/curve is essential (see below)
     "chart"        — REQUIRED whenever chartData is non-null: set "content" to the SAME title as chartData.title; one chart per entire whiteboard; place in the scene where you discuss comparison
 
+    "stack_diagram"  — vertical stack of cells: content = "Title|elem1,elem2,elem3|push:X  OR  pop"  (elem1 = bottom, last = top)
+    "queue_diagram"  — horizontal queue cells: content = "Title|elem1,elem2,elem3|enqueue:X  OR  dequeue"
+    "array_diagram"  — indexed array cells: content = "Title|elem0,elem1,elem2,elem3|highlight:2"  (highlight index or -1)
+    "linked_list"    — chain of data+pointer nodes: content = "Title|node1->node2->node3->NULL"
+    "dfa_diagram"    — DFA/NFA automaton: content = "q0,q1,q2|accept:q2|q0->q1:0,q1->q2:1,q0->q0:1,q1->q1:0"
+    "tree_diagram"   — binary tree BFS order: content = "root_val,left_val,right_val,ll,lr,rl,rr"  (max 7 nodes)
+
   graph_axes — STRICT (stops wrong “math graph” on every topic):
   * Use ONLY if questionCategory is "mathematical" AND (subjectTag is "mathematics" OR "physics") AND the answer truly needs a plotted curve in x–y space.
   * NEVER use graph_axes for computer_science, history, biology, economics, chemistry, general, or language-style theory — use "flowchart", "circle", "arrow", or "chart" instead.
@@ -275,10 +282,55 @@ WHITEBOARD SCRIPT — plan like a storyboard (6–7 scenes), then fill elements.
   * If chartData is an object with labels and values (bar comparison), you MUST include exactly one "chart" element in the whiteboard in the scene where you interpret that comparison.
   * The server cache (Redis) stores chartData with the same payload as the chat; the whiteboard must tell the same story.
 
-  Subject-fit examples:
-  * computer_science / algorithms / grammars: flowchart, circles, arrows; NEVER graph_axes unless it's numeric algorithm analysis with axes.
-  * mathematics / physics (functions): formula_box + graph_axes only when a curve matters.
-  * history / economics / biology: bullets + icon + arrow timeline; use "chart" if chartData compares categories.
+  Subject-fit examples — REQUIRED drawing rules per topic:
+
+  DATA STRUCTURES (stack, queue, linked list, array, tree):
+  * Stack questions  → MUST use "stack_diagram" with push/pop action. Show the stack state BEFORE and the operation.
+  * Queue questions  → MUST use "queue_diagram" with enqueue/dequeue action.
+  * Array/search     → MUST use "array_diagram" with the relevant index highlighted.
+  * Linked list      → MUST use "linked_list" showing data+pointer nodes to NULL.
+  * Binary tree / BST / heap → MUST use "tree_diagram" (BFS order, max 7 nodes).
+
+  AUTOMATA / TOC / COMPILER:
+  * DFA, NFA, Moore, Mealy → MUST use "dfa_diagram". List states, mark accept states, include ALL transitions (0/1 or a/b).
+  * CFG / grammar  → use "flowchart" to show a derivation chain (S→aSb→aaSbb→...).
+  * Chomsky hierarchy → use "chart" (Type-0 to Type-3) plus "flowchart" for containment.
+  * Pushdown automaton / Turing machine → "flowchart" for transition steps + "stack_diagram" for the stack.
+
+  WEB DEVELOPMENT:
+  * HTTP/request-response → "flowchart": "Browser→DNS→Server→Response→Browser"
+  * DOM tree → "tree_diagram": root = "html", children = "head,body", grandchildren = "title,div,p"
+  * CSS box model → four concentric "box" elements at center_left, center, and two nested text labels
+  * React lifecycle / component tree → "flowchart" or "tree_diagram"
+
+  MATHEMATICS:
+  * Any formula → "formula_box"
+  * Plotting a curve → "graph_axes" (only for mathematics/physics, never CS)
+  * Set theory → two overlapping "circle" elements + "bullets" for intersection
+  * Number theory steps → numbered "text" elements ("Step 1:", "Step 2:", ...) + "formula_box"
+
+  PHYSICS:
+  * Equations of motion / forces → "formula_box" + "graph_axes" if a v-t or s-t graph helps
+  * Circuit concepts → "flowchart": "Battery→Resistor R1→Junction→Resistor R2→Battery"
+  * Wave / optics → "graph_axes" (sin curve) + "formula_box"
+  * Newton's laws → "arrow" elements for force vectors + "text" for labels
+
+  BIOLOGY:
+  * Cell organelles → "icon" elements spread across canvas (🔋 Mitochondria, 🧬 Nucleus, etc.)
+  * Food chain / ecosystem → "flowchart": "Producer→Primary Consumer→Secondary Consumer→Decomposer"
+  * DNA/RNA → "flowchart" for transcription/translation steps + "bullets" for base pairing rules
+  * Classification hierarchy → "tree_diagram": Domain at root, then Kingdom, Phylum...
+
+  CHEMISTRY:
+  * Reaction mechanism → "flowchart": "Reactants→Transition State→Products" + "formula_box" for equation
+  * Periodic table trends → "chart" (bar chart of electronegativity / atomic radius)
+  * Electron configuration → "bullets" for subshells + "formula_box" for notation (1s² 2s² 2p⁶...)
+  * Titration / lab process → "flowchart" step chain
+
+  GENERAL RULE:
+  * Every theoretical scene MUST have at least one non-text visual.
+  * Use the NEW diagram types (stack_diagram, queue_diagram, array_diagram, linked_list, dfa_diagram, tree_diagram)
+    ONLY for the subjects above — do not force a stack diagram into a chemistry scene.
 
   questionCategory = "mathematical": include formula_box where formulas matter; number steps in text ("Step 1:", ...).
   questionCategory = "theoretical": every scene needs at least one non-text visual (flowchart, circle, arrow, icon, or chart), not only plain text.`;

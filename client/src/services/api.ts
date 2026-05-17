@@ -73,7 +73,7 @@ export interface MessageItem {
       scene_number: number;
       narration: string;
       elements: {
-        type: 'text' | 'box' | 'arrow' | 'circle' | 'icon' | 'underline' | 'flowchart' | 'formula_box' | 'graph_axes' | 'bullets' | 'chart';
+        type: 'text' | 'box' | 'arrow' | 'circle' | 'icon' | 'underline' | 'flowchart' | 'formula_box' | 'graph_axes' | 'bullets' | 'chart' | 'stack_diagram' | 'queue_diagram' | 'array_diagram' | 'linked_list' | 'dfa_diagram' | 'tree_diagram';
         content: string;
         position: string;
         color: string;

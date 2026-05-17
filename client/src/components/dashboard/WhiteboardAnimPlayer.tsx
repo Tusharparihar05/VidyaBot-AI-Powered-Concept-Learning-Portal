@@ -602,6 +602,397 @@ async function animateBulletPoints(
   }
 }
 
+// ── Stack Diagram ──────────────────────────────────────────────
+async function animateStack(
+  bgCtx: CanvasRenderingContext2D,
+  mainCtx: CanvasRenderingContext2D,
+  bgCanvas: HTMLCanvasElement,
+  handImg: HTMLImageElement | null,
+  x: number, y: number,
+  content: string, color: string,
+  cssW: number, cssH: number,
+  onFrame: () => void, cancelled: () => boolean,
+) {
+  // content: "Title|elem1,elem2,elem3|push:X  or  pop"
+  const parts = content.split('|');
+  const title = parts[0]?.trim() || 'Stack';
+  const elems = (parts[1] || '').split(',').map(s => s.trim()).filter(Boolean);
+  const action = (parts[2] || '').trim();
+
+  const cw = 90, ch = 36, gap = 2;
+  const baseY = y + (elems.length * (ch + gap)) / 2;
+  const sx = x - cw / 2;
+
+  // title
+  bgCtx.font = 'bold 14px Inter, "Segoe UI", sans-serif';
+  bgCtx.fillStyle = color; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+  bgCtx.fillText(title, x, baseY - elems.length * (ch + gap) - 22);
+  drawPresentation(mainCtx, bgCanvas, handImg, x, y, cssW, cssH); onFrame();
+
+  for (let i = 0; i < elems.length; i++) {
+    if (cancelled()) return;
+    const ey = baseY - i * (ch + gap) - ch;
+    await animateBox(bgCtx, mainCtx, bgCanvas, handImg, sx, ey, cw, ch, color, cssW, cssH, onFrame, cancelled);
+    const [r, g, b] = hexToRgb(color);
+    bgCtx.fillStyle = `rgba(${r},${g},${b},0.1)`; bgCtx.fillRect(sx, ey, cw, ch);
+    bgCtx.font = 'bold 13px Inter, "Segoe UI", sans-serif';
+    bgCtx.fillStyle = color; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+    bgCtx.fillText(elems[i], x, ey + ch / 2);
+  }
+
+  // TOP pointer
+  const topRowY = baseY - elems.length * (ch + gap);
+  bgCtx.font = 'bold 11px Inter, "Segoe UI", sans-serif';
+  bgCtx.fillStyle = '#059669'; bgCtx.textAlign = 'left';
+  bgCtx.fillText('← TOP', sx + cw + 8, topRowY + ch / 2);
+  drawPresentation(mainCtx, bgCanvas, handImg, sx + cw + 8, topRowY, cssW, cssH); onFrame();
+  await sleep(200);
+
+  if (action.startsWith('push:')) {
+    const val = action.split(':')[1] || '?';
+    const pushY = topRowY - (ch + gap);
+    await animateBox(bgCtx, mainCtx, bgCanvas, handImg, sx, pushY, cw, ch, '#059669', cssW, cssH, onFrame, cancelled);
+    bgCtx.fillStyle = 'rgba(5,150,105,0.15)'; bgCtx.fillRect(sx, pushY, cw, ch);
+    bgCtx.font = 'bold 13px Inter, "Segoe UI", sans-serif';
+    bgCtx.fillStyle = '#059669'; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+    bgCtx.fillText(val, x, pushY + ch / 2);
+    bgCtx.font = 'bold 11px Inter, "Segoe UI", sans-serif';
+    bgCtx.textAlign = 'right';
+    bgCtx.fillText('PUSH →', sx - 6, pushY + ch / 2);
+    drawPresentation(mainCtx, bgCanvas, handImg, x, pushY, cssW, cssH); onFrame();
+  } else if (action === 'pop') {
+    bgCtx.strokeStyle = '#dc2626'; bgCtx.lineWidth = 2.5; bgCtx.setLineDash([5, 3]);
+    bgCtx.strokeRect(sx, topRowY, cw, ch);
+    bgCtx.setLineDash([]);
+    bgCtx.font = 'bold 11px Inter, "Segoe UI", sans-serif';
+    bgCtx.fillStyle = '#dc2626'; bgCtx.textAlign = 'right';
+    bgCtx.fillText('POP ↑', sx - 6, topRowY + ch / 2);
+    drawPresentation(mainCtx, bgCanvas, handImg, x, topRowY, cssW, cssH); onFrame();
+  }
+}
+
+// ── Queue Diagram ─────────────────────────────────────────────
+async function animateQueue(
+  bgCtx: CanvasRenderingContext2D,
+  mainCtx: CanvasRenderingContext2D,
+  bgCanvas: HTMLCanvasElement,
+  handImg: HTMLImageElement | null,
+  x: number, y: number,
+  content: string, color: string,
+  cssW: number, cssH: number,
+  onFrame: () => void, cancelled: () => boolean,
+) {
+  const parts = content.split('|');
+  const title = parts[0]?.trim() || 'Queue';
+  const elems = (parts[1] || '').split(',').map(s => s.trim()).filter(Boolean);
+  const action = (parts[2] || '').trim();
+
+  const cw = Math.min(60, Math.floor((LOGICAL_W - 120) / Math.max(elems.length, 1)));
+  const ch = 44;
+  const totalW = elems.length * cw;
+  const startX = x - totalW / 2;
+
+  bgCtx.font = 'bold 14px Inter, "Segoe UI", sans-serif';
+  bgCtx.fillStyle = color; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+  bgCtx.fillText(title, x, y - ch / 2 - 22);
+
+  for (let i = 0; i < elems.length; i++) {
+    if (cancelled()) return;
+    const ex = startX + i * cw;
+    const ey = y - ch / 2;
+    await animateBox(bgCtx, mainCtx, bgCanvas, handImg, ex, ey, cw, ch, color, cssW, cssH, onFrame, cancelled);
+    const [r, g, b] = hexToRgb(color);
+    bgCtx.fillStyle = `rgba(${r},${g},${b},0.1)`; bgCtx.fillRect(ex, ey, cw, ch);
+    bgCtx.font = 'bold 13px Inter, "Segoe UI", sans-serif';
+    bgCtx.fillStyle = color; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+    bgCtx.fillText(elems[i], ex + cw / 2, y);
+  }
+
+  bgCtx.font = 'bold 11px Inter, "Segoe UI", sans-serif'; bgCtx.textAlign = 'center';
+  bgCtx.fillStyle = '#059669';
+  bgCtx.fillText('FRONT', startX + cw / 2, y + ch / 2 + 14);
+  bgCtx.fillStyle = '#7c3aed';
+  bgCtx.fillText('REAR', startX + totalW - cw / 2, y + ch / 2 + 14);
+  drawPresentation(mainCtx, bgCanvas, handImg, x, y, cssW, cssH); onFrame();
+  await sleep(200);
+
+  if (action.startsWith('enqueue:')) {
+    const val = action.split(':')[1] || '?';
+    const ex = startX + totalW;
+    await animateArrow(bgCtx, mainCtx, bgCanvas, handImg, ex + 46, y, ex + 4, y, '#7c3aed', 'ENQUEUE', cssW, cssH, onFrame, cancelled);
+    if (cancelled()) return;
+    await animateBox(bgCtx, mainCtx, bgCanvas, handImg, ex, y - ch / 2, cw, ch, '#7c3aed', cssW, cssH, onFrame, cancelled);
+    bgCtx.fillStyle = 'rgba(124,58,237,0.12)'; bgCtx.fillRect(ex, y - ch / 2, cw, ch);
+    bgCtx.font = 'bold 13px Inter, "Segoe UI", sans-serif';
+    bgCtx.fillStyle = '#7c3aed'; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+    bgCtx.fillText(val, ex + cw / 2, y);
+  } else if (action === 'dequeue') {
+    bgCtx.strokeStyle = '#dc2626'; bgCtx.lineWidth = 2.5; bgCtx.setLineDash([5, 3]);
+    bgCtx.strokeRect(startX, y - ch / 2, cw, ch);
+    bgCtx.setLineDash([]);
+    await animateArrow(bgCtx, mainCtx, bgCanvas, handImg, startX - 4, y, startX - 46, y, '#dc2626', 'DEQUEUE', cssW, cssH, onFrame, cancelled);
+  }
+}
+
+// ── Array Diagram ─────────────────────────────────────────────
+async function animateArrayDiagram(
+  bgCtx: CanvasRenderingContext2D,
+  mainCtx: CanvasRenderingContext2D,
+  bgCanvas: HTMLCanvasElement,
+  handImg: HTMLImageElement | null,
+  x: number, y: number,
+  content: string, color: string,
+  cssW: number, cssH: number,
+  onFrame: () => void, cancelled: () => boolean,
+) {
+  const parts = content.split('|');
+  const title = parts[0]?.trim() || 'Array';
+  const elems = (parts[1] || '').split(',').map(s => s.trim()).filter(Boolean);
+  const hlStr = (parts[2] || '').trim();
+  const hlIdx = hlStr.startsWith('highlight:') ? parseInt(hlStr.split(':')[1]) : -1;
+
+  const cw = Math.min(62, Math.floor((LOGICAL_W - 80) / Math.max(elems.length, 1)));
+  const ch = 44;
+  const totalW = elems.length * cw;
+  const startX = x - totalW / 2;
+
+  bgCtx.font = 'bold 14px Inter, "Segoe UI", sans-serif';
+  bgCtx.fillStyle = color; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+  bgCtx.fillText(title, x, y - ch / 2 - 20);
+
+  for (let i = 0; i < elems.length; i++) {
+    if (cancelled()) return;
+    const ex = startX + i * cw;
+    const ey = y - ch / 2;
+    const isHL = i === hlIdx;
+    const cellColor = isHL ? '#dc2626' : color;
+    await animateBox(bgCtx, mainCtx, bgCanvas, handImg, ex, ey, cw, ch, cellColor, cssW, cssH, onFrame, cancelled);
+    const [r, g, b] = hexToRgb(cellColor);
+    bgCtx.fillStyle = `rgba(${r},${g},${b},${isHL ? 0.2 : 0.08})`; bgCtx.fillRect(ex, ey, cw, ch);
+    bgCtx.font = `bold 13px Inter, "Segoe UI", sans-serif`;
+    bgCtx.fillStyle = cellColor; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+    bgCtx.fillText(elems[i], ex + cw / 2, y);
+    bgCtx.font = '10px Inter, "Segoe UI", sans-serif';
+    bgCtx.fillStyle = '#9ca3af';
+    bgCtx.fillText(`[${i}]`, ex + cw / 2, y + ch / 2 + 12);
+    drawPresentation(mainCtx, bgCanvas, handImg, ex + cw / 2, y, cssW, cssH); onFrame();
+  }
+
+  if (hlIdx >= 0 && hlIdx < elems.length) {
+    const arrowX = startX + hlIdx * cw + cw / 2;
+    bgCtx.font = 'bold 11px Inter, "Segoe UI", sans-serif';
+    bgCtx.fillStyle = '#dc2626'; bgCtx.textAlign = 'center';
+    bgCtx.fillText('▲ target', arrowX, y + ch / 2 + 28);
+    drawPresentation(mainCtx, bgCanvas, handImg, arrowX, y, cssW, cssH); onFrame();
+  }
+}
+
+// ── Linked List ───────────────────────────────────────────────
+async function animateLinkedList(
+  bgCtx: CanvasRenderingContext2D,
+  mainCtx: CanvasRenderingContext2D,
+  bgCanvas: HTMLCanvasElement,
+  handImg: HTMLImageElement | null,
+  x: number, y: number,
+  content: string, color: string,
+  cssW: number, cssH: number,
+  onFrame: () => void, cancelled: () => boolean,
+) {
+  const parts = content.split('|');
+  const title = parts[0]?.trim() || 'Linked List';
+  const chain = (parts[1] || parts[0] || '').split('->').map(s => s.trim()).filter(Boolean);
+
+  const dw = 56, pw = 20, ch = 38, gap = 28;
+  const blockW = dw + pw;
+  const totalW = chain.length * (blockW + gap) - gap;
+  const startX = x - totalW / 2;
+
+  bgCtx.font = 'bold 13px Inter, "Segoe UI", sans-serif';
+  bgCtx.fillStyle = color; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+  bgCtx.fillText(title, x, y - ch / 2 - 18);
+
+  for (let i = 0; i < chain.length; i++) {
+    if (cancelled()) return;
+    const nx = startX + i * (blockW + gap);
+    const ny = y - ch / 2;
+    const isNull = chain[i].toUpperCase() === 'NULL';
+
+    if (isNull) {
+      bgCtx.strokeStyle = '#9ca3af'; bgCtx.lineWidth = 1.8; bgCtx.setLineDash([4, 3]);
+      bgCtx.strokeRect(nx, ny, dw, ch); bgCtx.setLineDash([]);
+      bgCtx.font = 'bold 10px Inter, "Segoe UI", sans-serif';
+      bgCtx.fillStyle = '#9ca3af'; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+      bgCtx.fillText('NULL', nx + dw / 2, y);
+      bgCtx.fillStyle = '#6b7280';
+      bgCtx.fillRect(nx + dw + 4, ny + ch / 4, pw - 8, ch / 2);
+    } else {
+      await animateBox(bgCtx, mainCtx, bgCanvas, handImg, nx, ny, dw, ch, color, cssW, cssH, onFrame, cancelled);
+      const [r, g, b] = hexToRgb(color);
+      bgCtx.fillStyle = `rgba(${r},${g},${b},0.1)`; bgCtx.fillRect(nx, ny, dw, ch);
+      bgCtx.font = 'bold 13px Inter, "Segoe UI", sans-serif';
+      bgCtx.fillStyle = color; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+      bgCtx.fillText(chain[i], nx + dw / 2, y);
+      // pointer box
+      bgCtx.strokeStyle = color; bgCtx.lineWidth = 1.5;
+      bgCtx.strokeRect(nx + dw, ny, pw, ch);
+      bgCtx.fillStyle = `rgba(${r},${g},${b},0.25)`;
+      bgCtx.fillRect(nx + dw, ny, pw, ch);
+
+      if (i < chain.length - 1) {
+        await animateArrow(bgCtx, mainCtx, bgCanvas, handImg, nx + dw + pw + 2, y, nx + dw + pw + gap - 2, y, color, '', cssW, cssH, onFrame, cancelled);
+      }
+    }
+    if (i === 0) {
+      bgCtx.font = 'bold 11px Inter, "Segoe UI", sans-serif';
+      bgCtx.fillStyle = '#059669'; bgCtx.textAlign = 'center';
+      bgCtx.fillText('HEAD', nx + dw / 2, ny + ch + 14);
+    }
+    drawPresentation(mainCtx, bgCanvas, handImg, nx + dw / 2, y, cssW, cssH); onFrame();
+  }
+}
+
+// ── DFA / NFA Diagram ─────────────────────────────────────────
+async function animateDFA(
+  bgCtx: CanvasRenderingContext2D,
+  mainCtx: CanvasRenderingContext2D,
+  bgCanvas: HTMLCanvasElement,
+  handImg: HTMLImageElement | null,
+  x: number, y: number,
+  content: string, color: string,
+  cssW: number, cssH: number,
+  onFrame: () => void, cancelled: () => boolean,
+) {
+  // content: "q0,q1,q2|accept:q2|q0->q1:0,q1->q2:1,q0->q0:1"
+  const parts = content.split('|');
+  const states = (parts[0] || 'q0').split(',').map(s => s.trim()).filter(Boolean);
+  const acceptStr = (parts[1] || '').replace(/^accept:/i, '');
+  const accepts = new Set(acceptStr.split(',').map(s => s.trim()).filter(Boolean));
+  const transStr = parts[2] || '';
+  const transitions = transStr.split(',').map(t => {
+    const m = t.trim().match(/^(\w+)->(\w+):(.+)$/);
+    return m ? { from: m[1], to: m[2], label: m[3] } : null;
+  }).filter((t): t is { from: string; to: string; label: string } => Boolean(t));
+
+  const r = 28;
+  const spacing = Math.min(130, (LOGICAL_W - 100) / Math.max(states.length, 1));
+  const startX = x - ((states.length - 1) * spacing) / 2;
+
+  const pos: Record<string, [number, number]> = {};
+  states.forEach((s, i) => { pos[s] = [startX + i * spacing, y]; });
+
+  // start arrow
+  if (states.length > 0) {
+    const [sx, sy] = pos[states[0]];
+    await animateArrow(bgCtx, mainCtx, bgCanvas, handImg, sx - r - 36, sy, sx - r - 2, sy, color, '', cssW, cssH, onFrame, cancelled);
+  }
+
+  // draw states
+  for (const s of states) {
+    if (cancelled()) return;
+    const [sx, sy] = pos[s];
+    await animateCircle(bgCtx, mainCtx, bgCanvas, handImg, sx, sy, r, color, s, cssW, cssH, onFrame, cancelled);
+    if (accepts.has(s)) {
+      // double circle for accept state
+      bgCtx.beginPath();
+      bgCtx.arc(sx, sy, r - 5, 0, Math.PI * 2);
+      bgCtx.strokeStyle = color; bgCtx.lineWidth = 2;
+      bgCtx.stroke();
+      drawPresentation(mainCtx, bgCanvas, handImg, sx, sy, cssW, cssH); onFrame();
+    }
+  }
+
+  // draw transitions
+  const drawnLabels: Record<string, string[]> = {};
+  for (const tr of transitions) {
+    if (cancelled()) break;
+    const fp = pos[tr.from]; const tp = pos[tr.to];
+    if (!fp || !tp) continue;
+    const key = `${tr.from}->${tr.to}`;
+
+    if (tr.from === tr.to) {
+      // self-loop above the state
+      const lx = fp[0], ly = fp[1] - r;
+      bgCtx.beginPath();
+      bgCtx.arc(lx, ly - 16, 16, 0.3, Math.PI - 0.3);
+      bgCtx.strokeStyle = color; bgCtx.lineWidth = 2; bgCtx.stroke();
+      bgCtx.font = 'bold 12px Inter, "Segoe UI", sans-serif';
+      bgCtx.fillStyle = color; bgCtx.textAlign = 'center'; bgCtx.textBaseline = 'middle';
+      bgCtx.fillText(tr.label, lx, ly - 36);
+      drawPresentation(mainCtx, bgCanvas, handImg, lx, ly - 36, cssW, cssH); onFrame();
+    } else {
+      // combine labels for same-direction edges
+      if (!drawnLabels[key]) {
+        drawnLabels[key] = [];
+        const angle = Math.atan2(tp[1] - fp[1], tp[0] - fp[0]);
+        const x1 = fp[0] + r * Math.cos(angle), y1 = fp[1] + r * Math.sin(angle);
+        const x2 = tp[0] - r * Math.cos(angle), y2 = tp[1] - r * Math.sin(angle);
+        // collect all labels for this pair first
+        const allLabels = transitions.filter(t => t.from === tr.from && t.to === tr.to).map(t => t.label).join('/');
+        await animateArrow(bgCtx, mainCtx, bgCanvas, handImg, x1, y1, x2, y2, color, allLabels, cssW, cssH, onFrame, cancelled);
+        drawnLabels[key] = [allLabels];
+      }
+    }
+    await sleep(80);
+  }
+}
+
+// ── Binary Tree Diagram ───────────────────────────────────────
+async function animateBinaryTree(
+  bgCtx: CanvasRenderingContext2D,
+  mainCtx: CanvasRenderingContext2D,
+  bgCanvas: HTMLCanvasElement,
+  handImg: HTMLImageElement | null,
+  x: number, y: number,
+  content: string, color: string,
+  cssW: number, cssH: number,
+  onFrame: () => void, cancelled: () => boolean,
+) {
+  // content: BFS order values "50,30,70,20,40,60,80" (max 7)
+  const vals = content.split(',').map(s => s.trim()).filter(Boolean).slice(0, 7);
+  const nodeR = 22;
+  const levelGap = 72;
+  const levels = Math.ceil(Math.log2(vals.length + 1));
+  const topY = y - ((levels - 1) * levelGap) / 2;
+
+  // compute positions
+  const positions: Array<[number, number]> = vals.map((_, i) => {
+    const lvl = Math.floor(Math.log2(i + 1));
+    const posInLvl = i - (Math.pow(2, lvl) - 1);
+    const countInLvl = Math.pow(2, lvl);
+    const spread = Math.min(560, countInLvl * 80);
+    const nx = x - spread / 2 + spread / countInLvl * (posInLvl + 0.5);
+    const ny = topY + lvl * levelGap;
+    return [nx, ny];
+  });
+
+  // draw edges first (fast)
+  for (let i = 0; i < vals.length; i++) {
+    for (const child of [2 * i + 1, 2 * i + 2]) {
+      if (child >= vals.length) continue;
+      const [px, py] = positions[i], [cx, cy] = positions[child];
+      const angle = Math.atan2(cy - py, cx - px);
+      bgCtx.beginPath();
+      bgCtx.moveTo(px + nodeR * Math.cos(angle), py + nodeR * Math.sin(angle));
+      bgCtx.lineTo(cx - nodeR * Math.cos(angle), cy - nodeR * Math.sin(angle));
+      bgCtx.strokeStyle = color; bgCtx.lineWidth = 2; bgCtx.stroke();
+      drawPresentation(mainCtx, bgCanvas, handImg, cx, cy, cssW, cssH); onFrame();
+      await sleep(60);
+    }
+  }
+
+  // draw nodes
+  for (let i = 0; i < vals.length; i++) {
+    if (cancelled()) return;
+    const [nx, ny] = positions[i];
+    await animateCircle(bgCtx, mainCtx, bgCanvas, handImg, nx, ny, nodeR, color, vals[i], cssW, cssH, onFrame, cancelled);
+    if (i === 0) {
+      bgCtx.font = 'bold 11px Inter, "Segoe UI", sans-serif';
+      bgCtx.fillStyle = '#059669'; bgCtx.textAlign = 'center';
+      bgCtx.fillText('root', nx, ny - nodeR - 10);
+    }
+  }
+}
+
 function sleep(ms: number) {
   return new Promise<void>(r => setTimeout(r, ms));
 }
@@ -1076,7 +1467,32 @@ export default function WhiteboardAnimPlayer({ script, chartData = null }: Props
               drawPresentation(mainCtx, bgCanvas, null, -1, -1, cssW, cssH);
             }
             break;
+          case 'stack_diagram':
+            await animateStack(bgCtx, mainCtx, bgCanvas, hImg, ex, ey,
+              whiteboardElementText(el.content), el.color, cssW, cssH, onFrame, cancelled);
+            break;
+          case 'queue_diagram':
+            await animateQueue(bgCtx, mainCtx, bgCanvas, hImg, ex, ey,
+              whiteboardElementText(el.content), el.color, cssW, cssH, onFrame, cancelled);
+            break;
+          case 'array_diagram':
+            await animateArrayDiagram(bgCtx, mainCtx, bgCanvas, hImg, ex, ey,
+              whiteboardElementText(el.content), el.color, cssW, cssH, onFrame, cancelled);
+            break;
+          case 'linked_list':
+            await animateLinkedList(bgCtx, mainCtx, bgCanvas, hImg, ex, ey,
+              whiteboardElementText(el.content), el.color, cssW, cssH, onFrame, cancelled);
+            break;
+          case 'dfa_diagram':
+            await animateDFA(bgCtx, mainCtx, bgCanvas, hImg, ex, ey,
+              whiteboardElementText(el.content), el.color, cssW, cssH, onFrame, cancelled);
+            break;
+          case 'tree_diagram':
+            await animateBinaryTree(bgCtx, mainCtx, bgCanvas, hImg, ex, ey,
+              whiteboardElementText(el.content), el.color, cssW, cssH, onFrame, cancelled);
+            break;
         }
+
         drawPresentation(mainCtx, bgCanvas, null, -1, -1, cssW, cssH);
         await sleep(240);
       }
