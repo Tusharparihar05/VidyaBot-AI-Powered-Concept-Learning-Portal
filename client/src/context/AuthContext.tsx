@@ -68,7 +68,7 @@ function buildProfile(data: {
   const institutionName = data.institutionName?.trim() || '';
   const gradeYear = data.gradeYear?.trim() || '';
   const classLine = [gradeYear, institutionName].filter(Boolean).join(' · ') || '—';
-  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10b981&color=fff`;
+  const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff`;
   return { displayName, classLine, email: data.email.trim(), avatarUrl };
 }
 
@@ -80,6 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = loadAuthSession();
     if (saved) {
+      if (saved.profile?.avatarUrl && saved.profile.avatarUrl.includes('background=10b981')) {
+        saved.profile.avatarUrl = saved.profile.avatarUrl.replace('background=10b981', 'background=6366f1');
+        saveAuthSession(saved);
+      }
       setSession(saved);
       setUser(saved.profile);
     }
