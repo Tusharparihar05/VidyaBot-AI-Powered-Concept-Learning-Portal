@@ -17,17 +17,38 @@ const MARGIN_X = 36;
 
 type HAlign = 'left' | 'center' | 'right';
 
+/**
+ * Strict zone boundaries (in logical px) — nothing should paint across zones.
+ * TOP    zone: y  0 → 72   (scene badge + title row)
+ * CENTER zone: y 72 → 258  (diagrams, main content)
+ * BOTTOM zone: y 258 → 400 (bullets, summaries)
+ */
+const ZONE_TOP_MAX_Y    = 72;   // top zone ends here
+const ZONE_CENTER_MIN_Y = 72;   // center zone starts here
+const ZONE_CENTER_MAX_Y = 258;  // center zone ends here
+const ZONE_BOTTOM_MIN_Y = 262;  // bullets must start at or after this
+const ZONE_BOTTOM_MAX_Y = 396;  // bullets must end before this
+
 const POSITIONS: Record<string, [number, number]> = {
-  top_left: [0.12, 0.15],
-  top_center: [0.5, 0.12],
-  top_right: [0.88, 0.15],
-  center_left: [0.14, 0.5],
-  center: [0.5, 0.5],
-  center_right: [0.86, 0.5],
-  bottom_left: [0.14, 0.84],
-  bottom_center: [0.5, 0.86],
-  bottom_right: [0.86, 0.84],
+  // Top row — y≈14% — for titles, icons, accent boxes
+  top_left:      [0.13, 0.13],
+  top_center:    [0.50, 0.11],
+  top_right:     [0.87, 0.13],
+  // Middle row — y≈50% — for diagrams and main content
+  center_left:   [0.17, 0.50],
+  center:        [0.50, 0.50],
+  center_right:  [0.83, 0.50],
+  // Bottom row — y≈75% — for bullets, summaries, complexity notes
+  bottom_left:   [0.17, 0.76],
+  bottom_center: [0.50, 0.76],
+  bottom_right:  [0.83, 0.76],
 };
+
+/** Max text width for each column (left/right columns are narrower to avoid overlap) */
+function colMaxWidth(pos: string): number {
+  if (pos.includes('left') || pos.includes('right')) return 195;
+  return LOGICAL_W - MARGIN_X * 2;  // center column
+}
 
 function hAlignForPosition(pos: string): HAlign {
   if (pos.includes('left')) return 'left';
@@ -36,9 +57,7 @@ function hAlignForPosition(pos: string): HAlign {
 }
 
 function maxTextWidth(pos: string): number {
-  const h = hAlignForPosition(pos);
-  if (h === 'center') return LOGICAL_W - MARGIN_X * 2;
-  return LOGICAL_W - MARGIN_X - 48;
+  return colMaxWidth(pos);
 }
 
 function getPos(pos: string): [number, number] {
@@ -137,6 +156,7 @@ async function animateText(
 
   for (const ln of lines) {
     if (cancelled()) return;
+    
     const lw = bgCtx.measureText(ln).width;
     let cx = lineStartXForBlock(align, anchorX, lw, maxWidth);
     for (let i = 0; i < ln.length; i++) {
@@ -539,6 +559,14 @@ async function animateGraphAxes(
   }
 }
 
+/** Accent colour palette — each bullet index gets a distinct tint */
+const BULLET_PILL_COLORS = [
+  { bg: 'rgba(239,246,255,0.92)', border: '#3b82f6', text: '#1e3a8a' }, // blue
+  { bg: 'rgba(240,253,244,0.92)', border: '#22c55e', text: '#14532d' }, // green
+  { bg: 'rgba(254,243,199,0.92)', border: '#f59e0b', text: '#78350f' }, // amber
+  { bg: 'rgba(253,242,248,0.92)', border: '#ec4899', text: '#831843' }, // pink
+];
+
 async function animateBulletPoints(
   bgCtx: CanvasRenderingContext2D,
   mainCtx: CanvasRenderingContext2D,
@@ -556,49 +584,136 @@ async function animateBulletPoints(
   onFrame: () => void,
   cancelled: () => boolean,
 ) {
-  const lineHeight = 30;
-  let y = anchorY - ((bullets.length - 1) * lineHeight) / 2;
+  // ── Zone-safe constants ────────────────────────────────────────
+  // Bullets MUST live entirely within ZONE_BOTTOM_MIN_Y … ZONE_BOTTOM_MAX_Y.
+  // If the anchor is in the center or top zone we still push it down.
+  const ZONE_MIN = ZONE_BOTTOM_MIN_Y;                // 262
+  const ZONE_MAX = ZONE_BOTTOM_MAX_Y;                // 396
+  const AVAILABLE_H = ZONE_MAX - ZONE_MIN;           // 134 px
 
-  for (let i = 0; i < bullets.length; i++) {
+  const FONT_SIZE = 11;       // smaller font so more fits
+  const LINE_H = 22;          // tighter line height
+  const PILL_PAD_X = 8;
+  const PILL_PAD_Y = 4;
+  const PILL_GAP = 3;
+
+  // Cap column width: left/right columns ≤ 200 px, center ≤ 320 px
+  const MAX_W = Math.min(maxWidth, align === 'center' ? 320 : 200);
+
+  bgCtx.font = `bold ${FONT_SIZE}px Inter, "Segoe UI", sans-serif`;
+
+  // Pre-wrap all bullets
+  const innerW = MAX_W - PILL_PAD_X * 2 - 18;   // space left of bullet dot
+  const wrappedBullets = bullets.map(b => {
+    const raw = b.trim().replace(/^[•\-–]\s*/, '');
+    const lines = wrapLines(bgCtx, raw, innerW);
+    return { raw, lines };
+  });
+
+  // Compute per-pill heights
+  const pillHeights = wrappedBullets.map(
+    b => b.lines.length * LINE_H + PILL_PAD_Y * 2,
+  );
+  const totalH = pillHeights.reduce((s, h) => s + h + PILL_GAP, 0) - PILL_GAP;
+
+  // If content taller than available zone, scale LINE_H down proportionally
+  // (min 16 px per line so text stays readable)
+  let effectiveLH = LINE_H;
+  if (totalH > AVAILABLE_H) {
+    const scale = AVAILABLE_H / totalH;
+    effectiveLH = Math.max(16, Math.floor(LINE_H * scale));
+  }
+
+  // Recompute with adjusted line height
+  const adjPillHeights = wrappedBullets.map(
+    b => b.lines.length * effectiveLH + PILL_PAD_Y * 2,
+  );
+  const adjTotalH = adjPillHeights.reduce((s, h) => s + h + PILL_GAP, 0) - PILL_GAP;
+
+  // Start Y: always within bottom zone, centred around anchorY but clamped
+  let startY = Math.max(ZONE_MIN, anchorY - adjTotalH / 2);
+  // Make sure the block doesn't overflow the zone bottom
+  if (startY + adjTotalH > ZONE_MAX) {
+    startY = ZONE_MAX - adjTotalH;
+  }
+  // Final safety: never go above zone top
+  startY = Math.max(ZONE_MIN, startY);
+
+  // Left X of the pill block
+  const pillX =
+    align === 'right'
+      ? Math.min(anchorX, LOGICAL_W - MAX_W - MARGIN_X) - MAX_W
+      : align === 'left'
+        ? Math.max(MARGIN_X, anchorX - MAX_W / 2)
+        : anchorX - MAX_W / 2;
+
+  // Clamp pillX so pill never goes off-canvas
+  const safeX = Math.max(MARGIN_X, Math.min(pillX, LOGICAL_W - MAX_W - MARGIN_X));
+
+  let y = startY;
+
+  for (let i = 0; i < wrappedBullets.length; i++) {
     if (cancelled()) return;
-    const raw = bullets[i].trim().replace(/^[•\-–]\s*/, '');
-    const bulletX =
-      align === 'left'
-        ? anchorX - maxWidth / 2
-        : align === 'right'
-          ? anchorX + maxWidth / 2 - 12
-          : anchorX - 6;
+    const { lines } = wrappedBullets[i];
+    const theme = BULLET_PILL_COLORS[i % BULLET_PILL_COLORS.length];
+    const pillH = adjPillHeights[i];
 
-    bgCtx.fillStyle = color;
-    bgCtx.font = 'bold 14px Inter, "Segoe UI", sans-serif';
+    // Stop drawing if we've reached the bottom of the zone
+    if (y + pillH > ZONE_MAX) break;
+
+    // Pill background
+    const rx = 5;
+    bgCtx.fillStyle = theme.bg;
+    bgCtx.strokeStyle = theme.border;
+    bgCtx.lineWidth = 1.5;
+    bgCtx.beginPath();
+    bgCtx.roundRect(safeX, y, MAX_W, pillH, rx);
+    bgCtx.fill();
+    bgCtx.stroke();
+
+    // Left-edge accent bar
+    bgCtx.fillStyle = theme.border;
+    bgCtx.beginPath();
+    bgCtx.roundRect(safeX, y, 4, pillH, [rx, 0, 0, rx]);
+    bgCtx.fill();
+
+    // Bullet dot
+    bgCtx.fillStyle = theme.border;
+    bgCtx.font = `bold ${FONT_SIZE}px Inter, "Segoe UI", sans-serif`;
     bgCtx.textAlign = 'left';
     bgCtx.textBaseline = 'middle';
-    bgCtx.fillText('•', bulletX, y);
-    drawPresentation(mainCtx, bgCanvas, handImg, bulletX, y, cssW, cssH);
-    onFrame();
-    await sleep(80);
+    bgCtx.fillText('•', safeX + 8, y + PILL_PAD_Y + effectiveLH / 2);
 
-    const textX = bulletX + 16;
-    await animateText(
-      bgCtx,
-      mainCtx,
-      bgCanvas,
-      handImg,
-      raw,
-      textX,
-      y,
-      color,
-      14,
-      'left',
-      maxWidth - 24,
-      cssW,
-      cssH,
-      charDelayMs,
-      onFrame,
-      cancelled,
-    );
-    y += lineHeight;
-    await sleep(120);
+    // Animate text
+    const textStartX = safeX + 20;
+    for (let li = 0; li < lines.length; li++) {
+      if (cancelled()) return;
+      const lineY = y + PILL_PAD_Y + li * effectiveLH + effectiveLH / 2;
+      if (lineY > ZONE_MAX) break;   // clip at zone boundary
+      bgCtx.fillStyle = theme.text;
+      bgCtx.font = `bold ${FONT_SIZE}px Inter, "Segoe UI", sans-serif`;
+
+      if (li === 0) {
+        let cx = textStartX;
+        for (let ci = 0; ci < lines[li].length; ci++) {
+          if (cancelled()) return;
+          bgCtx.textAlign = 'left';
+          bgCtx.fillText(lines[li][ci], cx, lineY);
+          cx += bgCtx.measureText(lines[li][ci]).width;
+          drawPresentation(mainCtx, bgCanvas, handImg, cx, lineY, cssW, cssH);
+          onFrame();
+          await sleep(charDelayMs);
+        }
+      } else {
+        bgCtx.textAlign = 'left';
+        bgCtx.fillText(lines[li], textStartX, lineY);
+      }
+    }
+
+    drawPresentation(mainCtx, bgCanvas, handImg, safeX + MAX_W / 2, y + pillH / 2, cssW, cssH);
+    onFrame();
+    y += pillH + PILL_GAP;
+    await sleep(80);
   }
 }
 
@@ -1176,6 +1291,24 @@ export default function WhiteboardAnimPlayer({ script, chartData = null }: Props
     clearBg(bgCtx, mainCtx, bg, w, h, null);
   }, [clearBg]);
 
+  /**
+   * Pick the best available Hinglish / Hindi-English voice.
+   * Priority: hi-IN-SwaraNeural (Edge/Chrome neural) → any hi-IN female
+   *           → any hi-IN → any hi or en-IN female → en-IN fallback.
+   */
+  const pickHinglishVoice = useCallback((): SpeechSynthesisVoice | null => {
+    const voices = window.speechSynthesis?.getVoices() ?? [];
+    return (
+      voices.find(v => /swara/i.test(v.name) && v.lang.startsWith('hi')) ||
+      voices.find(v => v.lang === 'hi-IN' && /female|swara|heera/i.test(v.name)) ||
+      voices.find(v => v.lang === 'hi-IN') ||
+      voices.find(v => v.lang.startsWith('hi')) ||
+      voices.find(v => v.lang === 'en-IN' && /female|heera|ravi/i.test(v.name)) ||
+      voices.find(v => v.lang === 'en-IN') ||
+      null
+    );
+  }, []);
+
   const speak = useCallback(
     (text: string): Promise<void> => {
       return new Promise<void>(resolve => {
@@ -1185,22 +1318,21 @@ export default function WhiteboardAnimPlayer({ script, chartData = null }: Props
         }
         window.speechSynthesis.cancel();
         const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = 'hi-IN';          // tells the browser this is Hindi/Hinglish
         utt.rate = speechRate;
-        utt.pitch = 1.02;
+        utt.pitch = 1.05;
         utt.volume = 1;
-        const voices = window.speechSynthesis.getVoices();
-        const preferred =
-          voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female')) ||
-          voices.find(v => v.lang.startsWith('en-IN')) ||
-          voices.find(v => v.lang.startsWith('en'));
-        if (preferred) utt.voice = preferred;
+
+        const voice = pickHinglishVoice();
+        if (voice) utt.voice = voice;
+
         utt.onend = () => resolve();
         utt.onerror = () => resolve();
         utterRef.current = utt;
         window.speechSynthesis.speak(utt);
       });
     },
-    [muted, speechRate],
+    [muted, speechRate, pickHinglishVoice],
   );
 
   const drawScene = useCallback(
@@ -1535,6 +1667,7 @@ export default function WhiteboardAnimPlayer({ script, chartData = null }: Props
     cancelRef.current = true;
     playingRef.current = false;
     window.speechSynthesis?.cancel();
+    utterRef.current = null;
     setPlaying(false);
     setCaption('');
   }, []);
@@ -1542,6 +1675,7 @@ export default function WhiteboardAnimPlayer({ script, chartData = null }: Props
   const nextScene = useCallback(() => {
     cancelRef.current = true;
     window.speechSynthesis?.cancel();
+    utterRef.current = null;
     const next = Math.min(currentScene + 1, script.scenes.length - 1);
     cancelRef.current = false;
     playingRef.current = true;
@@ -1553,6 +1687,7 @@ export default function WhiteboardAnimPlayer({ script, chartData = null }: Props
   const restart = useCallback(() => {
     cancelRef.current = true;
     window.speechSynthesis?.cancel();
+    utterRef.current = null;
     setTimeout(() => {
       cancelRef.current = false;
       start();
@@ -1565,6 +1700,7 @@ export default function WhiteboardAnimPlayer({ script, chartData = null }: Props
     return () => {
       cancelRef.current = true;
       window.speechSynthesis?.cancel();
+      utterRef.current = null;
     };
   }, [clearCanvas, syncCanvasPixels]);
 

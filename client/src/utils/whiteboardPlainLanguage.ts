@@ -18,11 +18,12 @@ function verbalizeSimpleInlineMath(inner: string): string {
 
 /**
  * Strip notation and describe simple math in words for speech synthesis.
+ * Narration is Hinglish (Hindi + English mixed, Roman script).
  */
 export function narrationForSpeech(raw: string | undefined | null): string {
-  if (raw == null) return 'Let us continue.';
+  if (raw == null) return 'Chaliye, aage badhte hain.';
   let s = String(raw).trim();
-  if (!s) return 'Let us continue.';
+  if (!s) return 'Chaliye, aage badhte hain.';
 
   s = s.replace(/\*\*([^*]+)\*\*/g, '$1');
   s = s.replace(/\*([^*]+)\*/g, '$1');
@@ -37,7 +38,7 @@ export function narrationForSpeech(raw: string | undefined | null): string {
   s = s.replace(/\\times|\\cdot/gi, ' times ');
   s = s.replace(/\\pm\b/g, ' plus or minus ');
   s = s.replace(/\\sqrt\{([^}]*)\}/g, ' square root of $1 ');
-  s = s.replace(/\\(?:rightarrow|Rightarrow|longrightarrow|mapsto|implies)\b|\\to\b/gi, ', then ');
+  s = s.replace(/\\(?:rightarrow|Rightarrow|longrightarrow|mapsto|implies)\b|\\to\b/gi, ', phir ');
 
   s = s.replace(/\$([^$]+)\$/g, (_, inner) => {
     const t = String(inner).trim();
@@ -49,10 +50,10 @@ export function narrationForSpeech(raw: string | undefined | null): string {
 
   s = s.replace(/\$/g, ' ');
 
-  s = s.replace(/→|⟶|\u2192/g, ', then ');
-  s = s.replace(/←|\u2190/g, ', from ');
-  s = s.replace(/⇒|⟹|⇔/g, ', so ');
-  s = s.replace(/\s*-\s*>\s*/g, ', then ');
+  s = s.replace(/→|⟶|\u2192/g, ', phir ');
+  s = s.replace(/←|\u2190/g, ', wahan se ');
+  s = s.replace(/⇒|⟹|⇔/g, ', matlab ');
+  s = s.replace(/\s*->\s*/g, ', phir ');
 
   s = s.replace(/\\[a-zA-Z]+\*?/g, ' ');
 
@@ -62,7 +63,7 @@ export function narrationForSpeech(raw: string | undefined | null): string {
   s = s.replace(/\s+,/g, ',');
   s = s.replace(/\s+\./g, '.');
 
-  return s || 'Let us continue with the next idea.';
+  return s || 'Chaliye, next point pe jaate hain.';
 }
 
 /**

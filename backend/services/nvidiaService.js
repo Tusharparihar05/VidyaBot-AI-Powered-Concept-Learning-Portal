@@ -153,7 +153,7 @@ Schema:
       "formula": null
     }
   ],
-  "videoScript": "90-120 second spoken SUMMARY only — like a short teacher voiceover, NOT the full written answer. Plain English; describe math in words.",
+  "videoScript": "90-120 second engaging summary voiceover for a short lesson video (never paste or read the full explanation text).",
   "subjectTag": "one of: mathematics, physics, chemistry, biology, computer_science, history, economics, general",
   "difficultyLevel": "one of: easy, medium, hard",
   "questionCategory": "mathematical OR theoretical",
@@ -162,11 +162,11 @@ Schema:
     "scenes": [
       {
         "scene_number": 1,
-        "narration": "Plain spoken English only (no $, LaTeX, markdown, or arrows). Describe any math in words.",
+        "narration": "HINGLISH spoken narration — a natural blend of Hindi and English as spoken by Indian teachers. Write in Roman/English script only (no Devanagari). Use Hindi filler words (toh, matlab, dekho, samjho, basically, actually, iska matlab, yani ki) combined with English technical terms and sentences. Example: 'Toh doston, aaj hum Stack ke baare mein padenge. Stack ek data structure hai jisme elements ek ke upar ek rakhe jaate hain — just like a stack of plates. Iska main rule hai LIFO, matlab Last In First Out.' NEVER write pure Hindi or pure English — always mix both naturally. NEVER use LaTeX, dollar signs, markdown, or special characters.",
         "elements": [
           {
             "type": "text",
-            "content": "Short line; max ~140 chars",
+            "content": "Short line that matches what the narration just explained (max ~140 chars, plain text)",
             "position": "top_center",
             "color": "#1e40af"
           }
@@ -228,119 +228,205 @@ ANIMATION SCRIPT — adaptive, custom slides (5–7 slides):
 
   Set unused fields to null:  "code": null, "diagram": null, "formula": null.
 
-- videoScript: 90–120 second engaging summary voiceover for a short lesson video (never paste or read the full explanation text).
-- subjectTag / difficultyLevel: pick exactly one from the allowed lists.
-
-QUESTION CATEGORY — classify the question:
-  "mathematical": involves equations, formulas, geometry, calculus, algebra, statistics, proofs, graphs,
-    coordinate geometry, trigonometry, or any numerical/symbolic computation.
-  "theoretical": involves concepts, definitions, history, biology, processes, social science, CS theory,
-    explanations, comparisons — anything primarily explained in words.
-
-WHITEBOARD SCRIPT — plan like a storyboard (6–7 scenes), then fill elements. No duplicated story across scenes.
+-WHITEBOARD SCRIPT — plan like a storyboard (6–7 scenes), then fill elements. No duplicated story across scenes.
 
   PROCESS (do internally before writing JSON):
-  1) List scene purposes in order: hook → definition → mechanism → example → comparison (if any) → summary.
-  2) For each scene, assign elements so NOTHING overlaps: each scene = different teaching beat, fully explained in narration.
+  1) List scene purposes in order: hook → definition → mechanism → example → comparison → summary.
+  2) For each scene, pick elements so NOTHING overlaps: each scene = different teaching beat, fully explained in narration.
 
   Scene fields:
   * "scene_number": sequential integer
-  * "narration": 2–3 sentences of plain spoken English that fully explain THIS beat (not a vague teaser). NEVER use dollar-math, double-dollar blocks, backslash-LaTeX commands, markdown emphasis or code fences, or arrow glyphs — describe formulas and relationships in words (e.g. "x squared plus two x" rather than "x^2+2x").
-  * "elements": 2–4 elements (quality over quantity)
-  * "duration": 5–8 seconds
+  * "narration": 2–3 sentences of HINGLISH — a natural blend of Hindi filler/connector words and English technical terms, written in Roman/English script (no Devanagari, no pure Hindi, no pure English). The narration must FULLY EXPLAIN the beat shown on canvas that scene so a student watching ONLY the audio understands the concept. Examples: "Toh doston, aaj hum Stack samjhenge. Stack ek data structure hai jisme LIFO rule follow hota hai." NEVER use dollar-math, LaTeX, markdown, or arrow glyphs — describe formulas in plain words. The canvas elements for the scene MUST visually show exactly what the narration describes.
+  * "elements": EXACTLY 4–5 elements per scene (see MANDATORY STRUCTURE below)
+  * "duration": 6–8 seconds
 
-  LAYOUT LAW — prevents messy overlap:
-  * For types text, box, bullets, formula_box, flowchart, graph_axes, chart: use a UNIQUE "position" per scene — NEVER repeat the same position twice for these types in the same scene.
-  * Spread the canvas: e.g. title "top_center", body "center_left", diagram "center_right", summary "bottom_center".
-  * Keep each "text"/"box"/"bullets" string under ~140 characters; bullets: at most 4 lines, each line one short clause.
+  ═══════════════════════════════════════
+  MANDATORY SCENE STRUCTURE — ALL 4 REQUIRED:
+  ═══════════════════════════════════════
+  [1] TITLE  → type:"text"    position:"top_center"            — heading ≤ 50 chars, describes this scene
+  [2] VISUAL → appropriate diagram/shape for topic             — position: center OR center_left
+  [3] BULLETS→ type:"bullets" position:"center_right" OR       — EXACTLY 3–4 lines, each ≤ 40 chars
+               "bottom_center" OR "bottom_left" OR "bottom_right"
+               ⚠ NEVER place bullets at top_left, top_center, or top_right — those are reserved for TITLE and ICON only
+  [4] ACCENT → type:"icon" OR "box"  position:"top_right"      — emoji+caption or short key phrase ≤ 60 chars
 
-  Element types:
-    "text"         — short typography (handwriting animation)
-    "box"          — highlight one short phrase
-    "arrow"        — relationship; content like "A→label" or use label after →
-    "circle"       — one node label (≤14 chars in content)
-    "icon"         — "emoji rest of caption"
-    "underline"    — one emphasis line
-    "bullets"      — newline-separated points (not duplicated elsewhere in same scene)
-    "flowchart"    — chain only: "Step A→Step B→Step C" (use →), CS/process topics
-    "formula_box"  — math/physics formula text only (no LaTeX delimiters)
-    "graph_axes"   — ONLY when plotting a function/curve is essential (see below)
-    "chart"        — REQUIRED whenever chartData is non-null: set "content" to the SAME title as chartData.title; one chart per entire whiteboard; place in the scene where you discuss comparison
+  A 5th element (arrow, circle, underline, extra box) may be added when it adds meaning.
+  NEVER produce a scene with fewer than 4 elements.
 
-    "stack_diagram"  — vertical stack of cells: content = "Title|elem1,elem2,elem3|push:X  OR  pop"  (elem1 = bottom, last = top)
-    "queue_diagram"  — horizontal queue cells: content = "Title|elem1,elem2,elem3|enqueue:X  OR  dequeue"
-    "array_diagram"  — indexed array cells: content = "Title|elem0,elem1,elem2,elem3|highlight:2"  (highlight index or -1)
-    "linked_list"    — chain of data+pointer nodes: content = "Title|node1->node2->node3->NULL"
-    "dfa_diagram"    — DFA/NFA automaton: content = "q0,q1,q2|accept:q2|q0->q1:0,q1->q2:1,q0->q0:1,q1->q1:0"
-    "tree_diagram"   — binary tree BFS order: content = "root_val,left_val,right_val,ll,lr,rl,rr"  (max 7 nodes)
+  ═══════════════════════════════════════
+  9-POSITION GRID — strict zone rules:
+  ═══════════════════════════════════════
+  ┌──────────────────────────────────────────────────────┐
+  │ top_left      │   top_center    │   top_right        │  ← TITLE & ICON zone only
+  ├──────────────────────────────────────────────────────┤
+  │ center_left   │    center       │   center_right     │  ← DIAGRAMS & BULLETS (left/right cols ≤ 200px wide)
+  ├──────────────────────────────────────────────────────┤
+  │ bottom_left   │ bottom_center   │   bottom_right     │  ← BULLETS, SUMMARIES, COMPLEXITY NOTES
+  └──────────────────────────────────────────────────────┘
 
-  graph_axes — STRICT (stops wrong “math graph” on every topic):
-  * Use ONLY if questionCategory is "mathematical" AND (subjectTag is "mathematics" OR "physics") AND the answer truly needs a plotted curve in x–y space.
-  * NEVER use graph_axes for computer_science, history, biology, economics, chemistry, general, or language-style theory — use "flowchart", "circle", "arrow", or "chart" instead.
+  ZERO-OVERLAP LAW:
+  • slot-types (text, box, bullets, formula_box, graph_axes, flowchart, chart, stack_diagram, queue_diagram,
+    array_diagram, linked_list, dfa_diagram, tree_diagram) MUST each occupy a UNIQUE position per scene.
+  • NEVER put two slot-type elements at the same position.
+  • Left/right column positions (top_left, center_left, bottom_left, top_right, center_right, bottom_right)
+    are narrow (≈200px). Keep content there SHORT — bullets max 40 chars/line, icons max 35 chars.
+  • Center column positions are wide — diagrams and formula_box go here.
+  • Keep "text"/"box" content ≤ 100 chars.
 
-  chart + chartData:
-  * If chartData is an object with labels and values (bar comparison), you MUST include exactly one "chart" element in the whiteboard in the scene where you interpret that comparison.
-  * The server cache (Redis) stores chartData with the same payload as the chat; the whiteboard must tell the same story.
+  ═══════════════════════════════════════
+  ELEMENT TYPES:
+  ═══════════════════════════════════════
+  "text"         — handwriting-animated short heading/label
+  "box"          — drawn box highlighting a key phrase
+  "arrow"        — drawn arrow; content = "Label" or left blank
+  "circle"       — drawn circle node; content = label ≤ 14 chars
+  "icon"         — emoji + caption: "🔢 Arrays are 0-indexed"
+  "underline"    — underlined emphasis text
+  "bullets"      — newline-separated 3–4 short facts (NO duplication with other elements in same scene)
+  "flowchart"    — process chain: "Step A→Step B→Step C" (use → to separate steps)
+  "formula_box"  — formula text only (no LaTeX delimiters, no $$)
+  "graph_axes"   — ONLY for math/physics curve plots (see strict rule below)
+  "chart"        — bar chart; content = chartData.title (REQUIRED when chartData is non-null)
+  "stack_diagram"  — content = "Title|bottom,mid,top|push:X  OR  pop"
+  "queue_diagram"  — content = "Title|elem1,elem2,elem3|enqueue:X  OR  dequeue"
+  "array_diagram"  — content = "Title|v0,v1,v2,v3|highlight:idx"  (use -1 for no highlight)
+  "linked_list"    — content = "Title|node1->node2->node3->NULL"
+  "dfa_diagram"    — content = "q0,q1,q2|accept:q2|q0->q1:0,q1->q2:1,q0->q0:1"
+  "tree_diagram"   — BFS order content = "root,l,r,ll,lr,rl,rr"  (max 7 nodes)
 
-  Subject-fit examples — REQUIRED drawing rules per topic:
+  graph_axes STRICT RULE: Use ONLY when questionCategory="mathematical" AND subjectTag is "mathematics" OR "physics" AND the topic truly requires a plotted curve. NEVER use for CS, biology, history, economics, chemistry, or general topics.
 
-  DATA STRUCTURES (stack, queue, linked list, array, tree):
-  * Stack questions  → MUST use "stack_diagram" with push/pop action. Show the stack state BEFORE and the operation.
-  * Queue questions  → MUST use "queue_diagram" with enqueue/dequeue action.
-  * Array/search     → MUST use "array_diagram" with the relevant index highlighted.
-  * Linked list      → MUST use "linked_list" showing data+pointer nodes to NULL.
-  * Binary tree / BST / heap → MUST use "tree_diagram" (BFS order, max 7 nodes).
+  ═══════════════════════════════════════
+  VISUAL PALETTE — correct shape per topic:
+  ═══════════════════════════════════════
 
-  AUTOMATA / TOC / COMPILER:
-  * DFA, NFA, Moore, Mealy → MUST use "dfa_diagram". List states, mark accept states, include ALL transitions (0/1 or a/b).
-  * CFG / grammar  → use "flowchart" to show a derivation chain (S→aSb→aaSbb→...).
-  * Chomsky hierarchy → use "chart" (Type-0 to Type-3) plus "flowchart" for containment.
-  * Pushdown automaton / Turing machine → "flowchart" for transition steps + "stack_diagram" for the stack.
+  DATA STRUCTURES — always draw the actual structure:
+  • Array/Search/Sort → "array_diagram" at center_left  +  "icon" "🔢 0-indexed array" at top_right
+                        + "bullets" 3 facts (access O(1), search O(n), insert O(n)) at center_right
+                        + "box" complexity summary at bottom_center
+  • Stack (LIFO)      → "stack_diagram" at center_left  +  "icon" "📦 LIFO: Last In First Out" at top_right
+                        + "bullets" push/pop/peek/isEmpty at center_right
+                        + "box" "Top pointer → most recent element" at bottom_center
+  • Queue (FIFO)      → "queue_diagram" at center       +  "icon" "🚶 FIFO: First In First Out" at top_right
+                        + "bullets" enqueue/dequeue/front/rear at center_right
+                        + "box" "Front exits | Rear enters" at bottom_center
+  • Linked List       → "linked_list" at center_left    +  "circle" "HEAD" at top_left (color #059669)
+                        + "icon" "🔗 Node = data + next ptr" at top_right
+                        + "bullets" singly/doubly/circular/null at center_right
+  • Binary Tree/BST   → "tree_diagram" at center_left   +  "icon" "🌳 left < root < right" at top_right
+                        + "bullets" insert/search/delete/height at center_right
+                        + "box" "Root node at top" at top_left
+  • Graph (nodes+edges)→ Draw 3 "circle" nodes at center_left, center, center_right
+                        + "arrow" edges between them at relevant positions
+                        + "icon" "🔷 Nodes + Edges" at top_right
+                        + "bullets" directed/undirected/weighted/degree at bottom_center
 
-  WEB DEVELOPMENT:
-  * HTTP/request-response → "flowchart": "Browser→DNS→Server→Response→Browser"
-  * DOM tree → "tree_diagram": root = "html", children = "head,body", grandchildren = "title,div,p"
-  * CSS box model → four concentric "box" elements at center_left, center, and two nested text labels
-  * React lifecycle / component tree → "flowchart" or "tree_diagram"
+  AUTOMATA / TOC:
+  • DFA/NFA           → "dfa_diagram" at center         +  "icon" "🤖 Finite Automaton" at top_right
+                        + "bullets" states/transitions/accept/reject at center_right
+                        + "box" "Start: q0 | Accept: marked double circle" at bottom_center
+  • CFG/Grammar       → "flowchart" derivation at center_left  +  "icon" "📝 Context-Free Grammar" at top_right
+                        + "bullets" terminals/non-terminals/productions/start at center_right
+                        + "box" "S → aSb | b" at bottom_center
+  • Chomsky Hierarchy → "flowchart" "Type-0→Type-1→Type-2→Type-3" at center
+                        + "chart" at center_right        +  "icon" "🏛 4 Grammar Classes" at top_right
+                        + "bullets" RE/CFL/CSL/unrestricted at bottom_center
+
+  GRAPHS (Graph Theory — Math/CS):
+  • Undirected graph  → 3–4 "circle" nodes spread at center_left/center/center_right/bottom_left
+                        + "arrow" edges at positions near the source nodes
+                        + "icon" "🔵 V vertices, E edges" at top_right
+                        + "bullets" "Vertices\nEdges\nDegree\nPath / Cycle" at bottom_center
+  • Directed (Digraph)→ same node pattern + directional arrows
+                        + "icon" "➡ In-degree / Out-degree" at top_right
+                        + "bullets" "In-degree\nOut-degree\nDAG\nTopological sort" at center_right
 
   MATHEMATICS:
-  * Any formula → "formula_box"
-  * Plotting a curve → "graph_axes" (only for mathematics/physics, never CS)
-  * Set theory → two overlapping "circle" elements + "bullets" for intersection
-  * Number theory steps → numbered "text" elements ("Step 1:", "Step 2:", ...) + "formula_box"
+  • Formula/Equation  → "formula_box" at center         +  "icon" (📐 or 📊) at top_right
+                        + "bullets" variable definitions at center_right
+                        + "box" worked numeric example at bottom_center
+  • Geometry          → "circle" or "box" shape at center_left  +  "formula_box" at center_right
+                        + "icon" "📐 Geometry" at top_right    +  "bullets" at bottom_center
+  • Set Theory        → "circle" set A at center_left   +  "circle" set B at center_right
+                        + "text" "A ∩ B = Intersection" at bottom_center
+                        + "icon" "🔵 Set Operations" at top_right
+                        + "bullets" union/intersection/difference/complement at top_left
+  • Step-by-step proof→ "text" "Step 1: ..." at center_left  +  "formula_box" at center_right
+                        + "icon" "📝 Proof Steps" at top_right  +  "bullets" summary at bottom_center
 
   PHYSICS:
-  * Equations of motion / forces → "formula_box" + "graph_axes" if a v-t or s-t graph helps
-  * Circuit concepts → "flowchart": "Battery→Resistor R1→Junction→Resistor R2→Battery"
-  * Wave / optics → "graph_axes" (sin curve) + "formula_box"
-  * Newton's laws → "arrow" elements for force vectors + "text" for labels
+  • Force/Motion      → "arrow" force direction at center_left  +  "formula_box" at center_right
+                        + "icon" "⚡ Force & Motion" at top_right  +  "bullets" at bottom_center
+                        + "box" "F = m × a" at top_left
+  • Circuits          → "flowchart" "Battery→R1→Junction→R2→Battery" at center
+                        + "formula_box" "V = I × R" at center_right
+                        + "icon" "⚡ Ohm's Law" at top_right  +  "bullets" at bottom_center
+  • Waves/Optics      → "graph_axes" at center_left     +  "formula_box" at center_right
+                        + "icon" "〰 Wave" at top_right  +  "bullets" frequency/wavelength/amplitude/speed at bottom_center
 
   BIOLOGY:
-  * Cell organelles → "icon" elements spread across canvas (🔋 Mitochondria, 🧬 Nucleus, etc.)
-  * Food chain / ecosystem → "flowchart": "Producer→Primary Consumer→Secondary Consumer→Decomposer"
-  * DNA/RNA → "flowchart" for transcription/translation steps + "bullets" for base pairing rules
-  * Classification hierarchy → "tree_diagram": Domain at root, then Kingdom, Phylum...
+  • Cell organelles   → "icon" "🔋 Mitochondria" at center_left  +  "icon" "🧬 Nucleus" at center
+                        + "icon" "💧 Vacuole" at center_right
+                        + "bullets" organelle functions at bottom_center
+                        + "box" "Eukaryotic Cell" at top_right
+  • Food chain        → "flowchart" "Producer→Herbivore→Carnivore→Decomposer" at center
+                        + "icon" "🌿 Energy Flow" at top_right
+                        + "bullets" trophic levels/10% rule/producers/consumers at center_right
+                        + "box" "10% energy transfer per level" at bottom_left
+  • DNA/Genetics      → "flowchart" "DNA→mRNA→Ribosome→Protein" at center_left
+                        + "icon" "🧬 Central Dogma" at top_right
+                        + "bullets" transcription/translation/codons/amino acids at center_right
+                        + "box" "A-T, G-C base pairing" at bottom_center
+  • Taxonomy          → "tree_diagram" at center_left   +  "icon" "🔬 Classification" at top_right
+                        + "bullets" Domain/Kingdom/Phylum/Class at center_right
+                        + "box" "Binomial nomenclature" at bottom_center
 
   CHEMISTRY:
-  * Reaction mechanism → "flowchart": "Reactants→Transition State→Products" + "formula_box" for equation
-  * Periodic table trends → "chart" (bar chart of electronegativity / atomic radius)
-  * Electron configuration → "bullets" for subshells + "formula_box" for notation (1s² 2s² 2p⁶...)
-  * Titration / lab process → "flowchart" step chain
+  • Reactions         → "flowchart" "Reactants→TS→Products" at center_left
+                        + "formula_box" balanced equation at center_right
+                        + "icon" "⚗ Reaction" at top_right  +  "bullets" exo/endothermic/activation energy/catalyst at bottom_center
+  • Atomic structure  → "circle" (nucleus) at center    +  "icon" "⚛ Atom" at top_right
+                        + "bullets" protons/neutrons/electrons/shells at center_right
+                        + "formula_box" atomic number/mass at bottom_center
+  • Periodic trends   → "chart" at center               +  "icon" "📋 Periodic Trends" at top_right
+                        + "bullets" electronegativity/atomic radius/ionization/reactivity at center_right
+                        + "box" trend direction summary at bottom_center
 
-  GENERAL RULE:
-  * Every theoretical scene MUST have at least one non-text visual.
-  * Use the NEW diagram types (stack_diagram, queue_diagram, array_diagram, linked_list, dfa_diagram, tree_diagram)
-    ONLY for the subjects above — do not force a stack diagram into a chemistry scene.
+  COMPUTER SCIENCE (General):
+  • OS / Memory       → "flowchart" process lifecycle at center_left  +  "icon" "💻 OS" at top_right
+                        + "bullets" process/thread/memory/scheduling at center_right
+                        + "box" key term at bottom_center
+  • Networking        → "flowchart" "Client→DNS→Server→Response→Client" at center
+                        + "icon" "🌐 Network" at top_right
+                        + "bullets" TCP/UDP/IP/HTTP at center_right  +  "box" status codes at bottom_left
+  • OOP               → "tree_diagram" class hierarchy at center_left  +  "icon" "🧩 OOP" at top_right
+                        + "bullets" encapsulation/inheritance/polymorphism/abstraction at center_right
+                        + "box" key principle at bottom_center
 
-  questionCategory = "mathematical": include formula_box where formulas matter; number steps in text ("Step 1:", ...).
-  questionCategory = "theoretical": every scene needs at least one non-text visual (flowchart, circle, arrow, icon, or chart), not only plain text.`;
+  HISTORY / ECONOMICS / GENERAL:
+  • Timeline/Process  → "flowchart" "Event1→Event2→Event3→Outcome" at center
+                        + "icon" relevant emoji at top_right
+                        + "bullets" 4 key facts at center_right  +  "box" key date/name at top_left
+  • Comparison        → "chart" at center_left          +  "bullets" compared points at center_right
+                        + "icon" at top_right            +  "box" conclusion at bottom_center
+
+  ABSOLUTE RULES (applies to EVERY scene, no exceptions):
+  1. MINIMUM 4 elements per scene — if you only have 3, add an "icon" with an emoji + short label.
+  2. Every scene MUST contain a "bullets" element with 3–4 short, distinct key-fact lines.
+  3. NEVER produce a scene with only "text" elements — always pair text with at least one visual shape.
+  4. The diagram/shape drawn MUST directly illustrate what the narration explains for that scene.
+  5. Use stack_diagram/queue_diagram/array_diagram/linked_list/dfa_diagram/tree_diagram ONLY for the DSA/Automata topics — not for chemistry, physics, or history scenes.
+  6. chart REQUIRED in exactly one scene when chartData is non-null; content = chartData.title.
+
+  questionCategory = "mathematical": use formula_box; number proof steps ("Step 1:", "Step 2:", ...).
+  questionCategory = "theoretical": every scene MUST have ≥1 non-text visual (flowchart/circle/arrow/icon/chart) AND a bullets element.`;
 
 async function getMetadata(question, grade, profileContext = {}) {
   const userMsg = `Question: "${question}"\nStudent grade: ${grade}\nInstitution type: ${profileContext.institutionType || ''}\nInstitution: ${profileContext.institutionName || ''}`;
 
   const raw = await callNvidia(METADATA_SYSTEM_PROMPT, userMsg, {
     temperature: 0.6,
-    maxTokens: 4096,
+    maxTokens: 6144,
     jsonMode: true,
   });
 

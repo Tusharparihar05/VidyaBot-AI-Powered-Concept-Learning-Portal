@@ -176,12 +176,61 @@ function validateWhiteboardScript(script) {
 /** Types that need a distinct slot so they do not stack on the same coordinates */
 const WHITEBOARD_SLOT_TYPES = new Set([
   'text', 'box', 'bullets', 'formula_box', 'graph_axes', 'flowchart', 'chart',
+  'stack_diagram', 'queue_diagram', 'array_diagram', 'linked_list', 'dfa_diagram', 'tree_diagram',
 ]);
 
 const POSITION_FALLBACK_ORDER = [
   'top_center', 'top_left', 'center_left', 'center_right',
   'bottom_center', 'top_right', 'bottom_left', 'center', 'bottom_right',
 ];
+
+/** Icon emojis paired with generic topics as accent fallbacks */
+const ACCENT_ICONS = [
+  '💡 Key concept', '📌 Remember this', '✅ Important point', '🎯 Focus here',
+  '🔑 Core idea', '📝 Take note', '⭐ Key fact', '🧩 Building block',
+];
+
+/** Safe positions for auto-injected bullets — NEVER top row (would cover title) */
+const SAFE_BULLET_POSITIONS = [
+  'center_right', 'bottom_center', 'bottom_left', 'bottom_right', 'center_left',
+];
+
+/**
+ * Guarantee at least 4 elements per scene.
+ * Injected bullets go to safe bottom/center positions only.
+ * Injected icon goes to top_right (accent zone) if free.
+ */
+function padSceneElements(scene, keyPoints) {
+  const els = [...scene.elements];
+  const usedSlots = new Set(
+    els.filter(e => WHITEBOARD_SLOT_TYPES.has(e.type)).map(e => e.position),
+  );
+
+  // Inject bullets only at safe positions (never top row)
+  const hasBullets = els.some(e => e.type === 'bullets');
+  if (!hasBullets && els.length < 4 && keyPoints && keyPoints.length >= 2) {
+    const lines = keyPoints.slice(0, 4).map(k => String(k).slice(0, 40)).join('\n');
+    let pos = 'center_right';
+    for (const p of SAFE_BULLET_POSITIONS) {
+      if (!usedSlots.has(p)) { pos = p; break; }
+    }
+    usedSlots.add(pos);
+    els.push({ type: 'bullets', content: lines, position: pos, color: '#1f2937' });
+  }
+
+  // Inject icon accent at top_right or bottom_right if still under 4
+  if (els.length < 4) {
+    const accentPositions = ['top_right', 'bottom_right', 'top_left'];
+    let pos = 'top_right';
+    for (const p of accentPositions) {
+      if (!usedSlots.has(p)) { pos = p; break; }
+    }
+    const iconText = ACCENT_ICONS[scene.scene_number % ACCENT_ICONS.length] || '💡 Key concept';
+    els.push({ type: 'icon', content: iconText, position: pos, color: '#7c3aed' });
+  }
+
+  return { ...scene, elements: els };
+}
 
 /**
  * Fix overlapping elements, strip inappropriate coordinate graphs, trim verbosity,
@@ -239,9 +288,9 @@ function layoutAndEnrichWhiteboard(whiteboardScript, chartData, subjectTag, ques
       if (el.type === 'bullets') {
         const lines = String(el.content)
           .split(/\r?\n/)
-          .map(s => trimLine(s.replace(/^[•\-–]\s*/, ''), 140))
+          .map(s => trimLine(s.replace(/^[•\-–]\s*/, ''), 55))
           .filter(Boolean)
-          .slice(0, 5);
+          .slice(0, 4);
         return lines.length ? { ...el, content: lines.join('\n') } : el;
       }
       if (el.type === 'flowchart') {
@@ -256,11 +305,11 @@ function layoutAndEnrichWhiteboard(whiteboardScript, chartData, subjectTag, ques
       return el;
     });
 
-    return {
-      ...scene,
-      narration: sanitizeNarrationForSpeech(scene.narration),
-      elements,
-    };
+    const paddedScene = padSceneElements(
+      { ...scene, narration: sanitizeNarrationForSpeech(scene.narration), elements },
+      safeKeyPoints,
+    );
+    return paddedScene;
   });
 
   const hasChartEl = scenes.some(s => s.elements.some(e => e.type === 'chart'));
